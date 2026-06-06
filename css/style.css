@@ -613,3 +613,75 @@ body.light .settings-heading { color: #1c1810; }
 .fw5{font-weight:500;} .muted{color:var(--muted2)!important;} .serif{font-family:var(--font-serif);}
 .italic{font-style:italic;} .lh{line-height:1.65;} .hidden{display:none!important;} .w100{width:100%;}
 .text-rose{color:var(--rose2);} .text-gold{color:var(--gold2);} .text-green{color:var(--green);} .text-cream{color:var(--cream);}
+
+/* ── Event Cards ─────────────────────────────────────────────────── */
+.event-card {
+  background:    var(--ink2);
+  border:        1px solid var(--border);
+  border-radius: var(--r);
+  padding:       1rem 1.25rem;
+  cursor:        pointer;
+  transition:    var(--tr);
+  box-shadow:    var(--shadow-sm);
+  animation:     fadeUp .28s ease both;
+  margin-bottom: .75rem;
+}
+
+.event-card:hover { border-color: rgba(184,152,90,.35); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+.event-card-header {
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  margin-bottom:   .45rem;
+}
+
+.event-card-title {
+  font-family: var(--font-serif);
+  font-size:   1.1rem;
+  color:       var(--cream);
+  margin-bottom: .2rem;
+}
+
+body.light .event-card-title { color: #1c1810; }
+
+.event-type-badge {
+  display:     flex;
+  align-items: center;
+  gap:         .35rem;
+}
+
+.event-icon       { font-size: 16px; }
+
+.event-type-label {
+  font-size:      .7rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color:          var(--gold);
+  font-weight:    500;
+}
+
+.event-type-badge-lg {
+  display:        inline-flex;
+  align-items:    center;
+  gap:            .4rem;
+  font-size:      .78rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color:          var(--gold2);
+  background:     rgba(184,152,90,.1);
+  border:         1px solid rgba(184,152,90,.2);
+  padding:        .25rem .7rem;
+  border-radius:  99px;
+}
+
+/* Gold solid tag (placement) */
+.tag-gold-solid {
+  background:  rgba(184,152,90,.2);
+  color:       var(--gold2);
+  border:      1px solid rgba(184,152,90,.3);
+  font-size:   .72rem;
+  padding:     .2rem .55rem;
+  border-radius: 99px;
+  font-weight: 500;
+}
