@@ -764,3 +764,32 @@ body.light .event-card-title { color: #1c1810; }
   line-height: 1.5;
   transition: color .2s;
 }
+
+/* ── Upcoming Classes widget ─────────────────────────────────────── */
+.upcoming-when {
+  font-size:      .65rem;
+  font-weight:    500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding:        .15rem .5rem;
+  border-radius:  99px;
+  flex-shrink:    0;
+}
+
+.upcoming-when-today {
+  background: rgba(201,130,122,.18);
+  color:      var(--rose2);
+  border:     1px solid rgba(201,130,122,.3);
+}
+
+.upcoming-when-tomorrow {
+  background: rgba(184,152,90,.14);
+  color:      var(--gold2);
+  border:     1px solid rgba(184,152,90,.25);
+}
+
+.upcoming-when-soon {
+  background: var(--ink3);
+  color:      var(--muted2);
+  border:     1px solid var(--border2);
+}
