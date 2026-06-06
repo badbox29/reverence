@@ -37,6 +37,9 @@
       <button class="btn btn-icon" id="btn-pointe" title="Pointe" style="display:none;">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/></svg>
       </button>
+      <button class="btn btn-icon" id="btn-injuries" title="Injury Log">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      </button>
       <button class="btn btn-icon" id="btn-settings" title="Settings">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
@@ -614,11 +617,6 @@
           Show Pointe tracker
         </label>
       </div>
-      <div class="settings-section">
-        <div class="settings-heading">Injury Log</div>
-        <div id="injury-log-list" style="margin-bottom:.75rem;"></div>
-        <button class="btn btn-outline btn-sm" id="btn-log-injury">+ Log Injury / Soreness</button>
-      </div>
       <div class="form-actions">
         <span></span>
         <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
@@ -628,7 +626,25 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════ -->
-<!-- MODAL: Injury                                                  -->
+<!-- MODAL: Injury Log                                              -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-injuries" role="dialog" aria-modal="true" aria-label="Injury Log">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <h2 class="modal-title">Injury Log</h2>
+      <div class="modal-header-actions">
+        <button class="btn btn-outline btn-sm" id="btn-open-log-injury">+ Log Injury</button>
+        <button class="modal-close" data-close="modal-injuries">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="injuries-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Log Injury (sub-form)                                   -->
 <!-- ══════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-injury" role="dialog" aria-modal="true" aria-label="Log Injury">
   <div class="modal modal-sm">
@@ -653,12 +669,19 @@
           </select>
         </div>
       </div>
-      <div class="form-group"><label class="form-label">Description</label>
-        <textarea class="input textarea" id="inj-desc" style="min-height:80px;"
-          placeholder="What happened? Pain level, circumstances…"></textarea></div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="input textarea" id="inj-desc" style="min-height:90px;"
+          placeholder="What happened? Which side? Pain level, how it occurred…"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes / Treatment</label>
+        <textarea class="input textarea" id="inj-treatment" style="min-height:70px;"
+          placeholder="Ice, rest, physio, taping, modifications…"></textarea>
+      </div>
       <div class="form-actions">
         <button class="btn btn-ghost" data-close="modal-injury">Cancel</button>
-        <button class="btn btn-primary" id="btn-submit-injury">Save</button>
+        <button class="btn btn-primary" id="btn-submit-injury">Save Entry</button>
       </div>
     </div>
   </div>
