@@ -709,3 +709,41 @@ body.light .event-card-title { color: #1c1810; }
   0%,100% { opacity: 1; }
   50%      { opacity: .5; }
 }
+
+/* ── Injury Cards ────────────────────────────────────────────────── */
+.injury-card {
+  padding:       .85rem 0;
+  border-top:    1px solid var(--border);
+}
+.injury-card:first-child { border-top: none; }
+
+.tag-gold {
+  background: rgba(184,152,90,.15);
+  color:      var(--gold2);
+}
+
+.injury-status-btn {
+  background:    none;
+  border:        1px solid var(--border2);
+  border-radius: var(--r-sm);
+  color:         var(--muted2);
+  font-size:     .85rem;
+  padding:       .15rem .4rem;
+  cursor:        pointer;
+  transition:    var(--tr);
+  line-height:   1;
+}
+.injury-status-btn:hover { border-color: var(--gold); color: var(--gold2); }
+
+.injury-delete-btn {
+  background:    none;
+  border:        1px solid transparent;
+  border-radius: var(--r-sm);
+  color:         var(--muted);
+  font-size:     .8rem;
+  padding:       .15rem .4rem;
+  cursor:        pointer;
+  transition:    var(--tr);
+  line-height:   1;
+}
+.injury-delete-btn:hover { border-color: var(--red); color: var(--red); }
