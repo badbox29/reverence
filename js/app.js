@@ -167,7 +167,6 @@ function initData() {
   };
 }
 
-function save() { KV.set('appdata', D); }
 
 // ── Badge checks ──────────────────────────────────────────────────
 function checkBadges() {
@@ -732,7 +731,7 @@ function renderScheduleModal() {
           <div class="class-item">
             <div>
               <div class="fw5 f14" style="color:var(--cream);">${esc(c.name)}</div>
-              <div class="f12 muted mt-4">${c.days?.join(', ')||''} · ${esc(c.time)} · ${esc(c.teacher)}</div>
+              <div class="f12 muted mt-4">${c.days?.join(', ')||''} · ${esc(c.time)} · ${esc(c.teacher)}${c.intensiveDuration&&c.intensiveDuration!=='custom'?' · '+esc(c.intensiveDuration):c.intensiveStart&&c.intensiveEnd?' · '+fmtDateShort(c.intensiveStart)+' – '+fmtDateShort(c.intensiveEnd):''}</div>
               <div class="row gap-6 mt-6">
                 <span class="tag tag-style">${esc(c.style)}</span>
                 <span class="tag tag-season">${esc(c.type)}</span>
@@ -775,6 +774,9 @@ function startAddClass(seasonId){
   document.querySelectorAll('#nc-days-chips .chip').forEach(c=>c.classList.remove('on'));
   ['nc-name','nc-teacher','nc-time','nc-loc'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('nc-group').value='';
+  document.getElementById('nc-type').value='Regular';
+  const intensiveWrap=document.getElementById('nc-intensive-wrap');
+  if(intensiveWrap) intensiveWrap.style.display='none';
   openModal('modal-new-class');
 }
 
@@ -782,10 +784,42 @@ document.getElementById('nc-days-chips').addEventListener('click',e=>{
   const chip=e.target.closest('.chip'); if(chip) chip.classList.toggle('on');
 });
 
+document.getElementById('nc-type').addEventListener('change', function(){
+  const intensiveWrap = document.getElementById('nc-intensive-wrap');
+  const customDates   = document.getElementById('nc-intensive-custom');
+  if(!intensiveWrap) return;
+  intensiveWrap.style.display = this.value==='Intensive' ? '' : 'none';
+  if(customDates) customDates.style.display = 'none';
+});
+
+document.getElementById('nc-intensive-duration')?.addEventListener('change', function(){
+  const customDates = document.getElementById('nc-intensive-custom');
+  if(customDates) customDates.style.display = this.value==='custom' ? '' : 'none';
+});
+
 document.getElementById('btn-submit-class').addEventListener('click',()=>{
   const name=val('nc-name'); if(!name||!addClassSeason) return;
   const days=[...document.querySelectorAll('#nc-days-chips .chip.on')].map(c=>c.dataset.day);
-  const cls={id:uid(),name,style:document.getElementById('nc-style').value,type:document.getElementById('nc-type').value,teacher:val('nc-teacher'),time:val('nc-time'),location:val('nc-loc'),days,group:document.getElementById('nc-group').value};
+  const classType=document.getElementById('nc-type').value;
+  // Intensive duration
+  let intensiveDuration='', intensiveStart='', intensiveEnd='';
+  if(classType==='Intensive'){
+    intensiveDuration=document.getElementById('nc-intensive-duration')?.value||'';
+    if(intensiveDuration==='custom'){
+      intensiveStart=document.getElementById('nc-intensive-start')?.value||'';
+      intensiveEnd=document.getElementById('nc-intensive-end')?.value||'';
+    }
+  }
+  const cls={
+    id:uid(), name,
+    style:    document.getElementById('nc-style').value,
+    type:     classType,
+    teacher:  val('nc-teacher'),
+    time:     val('nc-time'),
+    location: val('nc-loc'),
+    days, group: document.getElementById('nc-group').value,
+    intensiveDuration, intensiveStart, intensiveEnd,
+  };
   D.seasons=D.seasons.map(s=>s.id===addClassSeason?{...s,classes:[...(s.classes||[]),cls]}:s);
   save();renderScheduleModal();renderSidebar();
   closeModal('modal-new-class'); toast('Class added ✓');
