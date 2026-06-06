@@ -65,63 +65,141 @@ const KV = {
 };
 
 // ── Remote sync (Cloudflare Worker) ──────────────────────────────
-let syncStatus = 'idle'; // idle | syncing | ok | error
+let syncStatus  = 'idle';  // idle | syncing | ok | error | offline
+let syncDirty   = false;   // true when local changes haven't reached worker yet
+let syncPingTimer = null;
 
 function workerBase() {
   const url = (D?.workerUrl||'').replace(/\/+$/, '');
   return url || null;
 }
 
-function syncIndicatorHTML(status) {
+function setSyncStatus(s) {
+  syncStatus = s;
   const map = {
-    idle:    { icon:'☁️',  text:'Not synced',  cls:'sync-idle'    },
-    syncing: { icon:'⟳',   text:'Syncing…',    cls:'sync-syncing' },
-    ok:      { icon:'✓',   text:'Synced',      cls:'sync-ok'      },
-    error:   { icon:'✕',   text:'Sync failed', cls:'sync-error'   },
+    idle:    { icon:'☁️',  text:'Not synced', cls:'sync-idle'    },
+    syncing: { icon:'⟳',   text:'Syncing…',   cls:'sync-syncing' },
+    ok:      { icon:'✓',   text:'Synced',     cls:'sync-ok'      },
+    error:   { icon:'✕',   text:'Sync error', cls:'sync-error'   },
+    offline: { icon:'📵',  text:'Offline',    cls:'sync-error'   },
   };
-  const s = map[status] || map.idle;
-  return `<span class="sync-indicator ${s.cls}" title="${s.text}">${s.icon} ${s.text}</span>`;
-}
-
-function updateSyncIndicator() {
+  const s2 = map[s] || map.idle;
+  const html = `<span id="sync-indicator" class="sync-indicator ${s2.cls}" title="${s2.text}">${s2.icon} ${s2.text}${syncDirty&&s!=='syncing'?' ·  unsaved':''}  </span>`;
   const el = document.getElementById('sync-indicator');
-  if(el) el.outerHTML = `<span id="sync-indicator">${syncIndicatorHTML(syncStatus)}</span>`;
-  const el2 = document.getElementById('sync-indicator');
-  if(el2) el2.outerHTML = syncIndicatorHTML(syncStatus).replace('<span class=','<span id="sync-indicator" class=');
+  if(el) el.outerHTML = html;
 }
 
-async function pushToWorker() {
+// Push D to worker for the given token (defaults to D.userToken)
+async function pushToWorker(token) {
   const base = workerBase();
-  if(!base || !D?.userToken) return;
-  syncStatus = 'syncing'; updateSyncIndicator();
+  token = token || D?.userToken;
+  if(!base || !token) return false;
+  setSyncStatus('syncing');
   try {
-    const res = await fetch(`${base}/kv/${encodeURIComponent(D.userToken)}`, {
+    const payload = { ...D, lastModified: Date.now() };
+    const res = await fetch(`${base}/kv/${encodeURIComponent(token)}`, {
       method:  'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(D),
+      body:    JSON.stringify(payload),
     });
-    syncStatus = res.ok ? 'ok' : 'error';
-  } catch { syncStatus = 'error'; }
-  updateSyncIndicator();
+    if(res.ok) { syncDirty=false; setSyncStatus('ok'); return true; }
+    setSyncStatus('error'); return false;
+  } catch {
+    setSyncStatus(navigator.onLine ? 'error' : 'offline');
+    return false;
+  }
 }
 
-async function pullFromWorker() {
+// Pull data from worker for the given token
+async function pullFromWorker(token) {
   const base = workerBase();
-  if(!base || !D?.userToken) return null;
-  syncStatus = 'syncing'; updateSyncIndicator();
+  token = token || D?.userToken;
+  if(!base || !token) return null;
+  setSyncStatus('syncing');
   try {
-    const res  = await fetch(`${base}/kv/${encodeURIComponent(D.userToken)}`);
-    if(!res.ok){ syncStatus = res.status===404 ? 'idle' : 'error'; updateSyncIndicator(); return null; }
+    const res = await fetch(`${base}/kv/${encodeURIComponent(token)}`);
+    if(res.status===404){ setSyncStatus('idle'); return null; }
+    if(!res.ok){ setSyncStatus('error'); return null; }
     const data = await res.json();
-    syncStatus = 'ok'; updateSyncIndicator();
+    setSyncStatus('ok');
     return data;
-  } catch { syncStatus = 'error'; updateSyncIndicator(); return null; }
+  } catch {
+    setSyncStatus(navigator.onLine ? 'error' : 'offline');
+    return null;
+  }
 }
 
-// save locally and push to worker
-function save() {
+// Merge and validate a raw data object coming from worker or import
+function mergeData(raw) {
+  const defaults = initData();
+  const merged = Object.assign({}, defaults, raw);
+  if(!Array.isArray(merged.events))          merged.events=[];
+  if(!Array.isArray(merged.entries))         merged.entries=[];
+  if(!Array.isArray(merged.seasons))         merged.seasons=[];
+  if(!Array.isArray(merged.goals))           merged.goals=[];
+  if(!Array.isArray(merged.badges))          merged.badges=[];
+  if(!Array.isArray(merged.injuryLog))       merged.injuryLog=[];
+  if(!merged.pointeLog)                      merged.pointeLog={readiness:{},shoes:[],conditioning:{}};
+  if(!Array.isArray(merged.pointeLog.shoes)) merged.pointeLog.shoes=[];
+  if(typeof merged.showPointe==='undefined') merged.showPointe=false;
+  if(typeof merged.workerUrl==='undefined')  merged.workerUrl='';
+  if(typeof merged.lastModified==='undefined') merged.lastModified=0;
+  return merged;
+}
+
+// Apply merged remote data and re-render everything
+function applyData(merged) {
+  D = merged;
   KV.set('appdata', D);
-  if(workerBase()) pushToWorker();
+  checkBadges();
+  applyTheme();
+  updatePointeButton();
+  renderSpotlight();
+  renderSidebar();
+  renderFeed();
+}
+
+// Save locally; stamp lastModified; push to worker; mark dirty if push fails
+function save() {
+  D.lastModified = Date.now();
+  KV.set('appdata', D);
+  if(workerBase()) {
+    syncDirty = true;
+    pushToWorker().then(ok => { if(ok) syncDirty=false; });
+  }
+}
+
+// Periodic ping: check worker reachability, flush dirty changes
+function startSyncPing() {
+  if(syncPingTimer) clearInterval(syncPingTimer);
+  syncPingTimer = setInterval(async () => {
+    const base = workerBase();
+    if(!base) return;
+    if(syncDirty) {
+      // Attempt to flush pending changes
+      await pushToWorker();
+    } else {
+      // Just check connectivity with a lightweight pull
+      try {
+        const res = await fetch(`${base}/`, { method:'GET' });
+        if(res.ok && syncStatus==='offline') setSyncStatus('ok');
+      } catch { setSyncStatus('offline'); }
+    }
+  }, 60000); // every 60 seconds
+}
+
+// Switch to a different account token — pull remote data and replace local
+async function switchToToken(newToken) {
+  newToken = newToken.trim();
+  if(!newToken) return { ok:false, msg:'Please enter a token.' };
+  const base = workerBase();
+  if(!base) return { ok:false, msg:'No worker URL configured. Add one in Settings first.' };
+  const remote = await pullFromWorker(newToken);
+  if(!remote) return { ok:false, msg:'No account found for that token. Check the token and try again.' };
+  const merged = mergeData(remote);
+  merged.workerUrl = D.workerUrl; // keep current worker URL
+  applyData(merged);
+  return { ok:true };
 }
 
 // ── Utilities ─────────────────────────────────────────────────────
@@ -164,6 +242,7 @@ function initData() {
     injuryLog:    [],
     theme:        'dark',
     workerUrl:    '',
+    lastModified: 0,
   };
 }
 
@@ -995,8 +1074,31 @@ document.getElementById('btn-open-log-injury').addEventListener('click', ()=>{
 document.getElementById('btn-manual-sync').addEventListener('click', async ()=>{
   if(!workerBase()){ toast('No worker URL set in Settings.'); return; }
   toast('Syncing…');
-  await pushToWorker();
-  toast(syncStatus==='ok' ? 'Synced to worker ✓' : 'Sync failed — check worker URL.');
+  const ok = await pushToWorker();
+  toast(ok ? 'Synced to worker ✓' : 'Sync failed — check worker URL.');
+});
+
+document.getElementById('btn-switch-account').addEventListener('click', ()=>{
+  document.getElementById('switch-token-input').value='';
+  document.getElementById('switch-account-status').textContent='';
+  openModal('modal-switch-account');
+});
+
+document.getElementById('btn-submit-switch-account').addEventListener('click', async ()=>{
+  const token = document.getElementById('switch-token-input').value.trim();
+  const statusEl = document.getElementById('switch-account-status');
+  statusEl.style.color='var(--gold2)';
+  statusEl.textContent='Looking up account…';
+  const result = await switchToToken(token);
+  if(result.ok){
+    closeModal('modal-switch-account');
+    closeModal('modal-settings');
+    startSyncPing();
+    toast('Account switched ✓');
+  } else {
+    statusEl.style.color='var(--red)';
+    statusEl.textContent=result.msg;
+  }
 });
 document.getElementById('btn-submit-injury').addEventListener('click',()=>{
   const desc=val('inj-desc'); if(!desc) return;
@@ -1012,62 +1114,127 @@ document.getElementById('btn-submit-injury').addEventListener('click',()=>{
 });
 
 // ── Boot ──────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded',()=>{
-  const stored=KV.get('appdata');
-  const defaults=initData();
-  if(stored){
-    // Merge new fields into legacy saved data so nothing breaks
-    D=Object.assign({},defaults,stored);
-    if(!Array.isArray(D.events))          D.events=[];
-    if(!Array.isArray(D.entries))         D.entries=[];
-    if(!Array.isArray(D.seasons))         D.seasons=[];
-    if(!Array.isArray(D.goals))           D.goals=[];
-    if(!Array.isArray(D.badges))          D.badges=[];
-    if(!Array.isArray(D.injuryLog))       D.injuryLog=[];
-    if(!D.pointeLog)                      D.pointeLog={readiness:{},shoes:[],conditioning:{}};
-    if(!Array.isArray(D.pointeLog.shoes)) D.pointeLog.shoes=[];
-    if(typeof D.showPointe==='undefined') D.showPointe=false;
-    if(typeof D.workerUrl==='undefined')  D.workerUrl='';
-    save();
-  } else {
-    D=defaults;
-    save();
-  }
-  checkBadges();
-  applyTheme();
-  updatePointeButton();
-  renderSpotlight();
-  renderSidebar();
-  renderFeed();
-  // After local render, try to pull fresher data from worker
-  if(workerBase()) {
-    pullFromWorker().then(remote => {
-      if(!remote) return;
-      // Only adopt remote data if it has more entries (simple conflict resolution)
-      const localEntries = D.entries.length;
-      const remoteEntries = (remote.entries||[]).length;
-      if(remoteEntries >= localEntries) {
-        const defaults = initData();
-        D = Object.assign({}, defaults, remote);
-        if(!Array.isArray(D.events))    D.events=[];
-        if(!Array.isArray(D.entries))   D.entries=[];
-        if(!Array.isArray(D.seasons))   D.seasons=[];
-        if(!Array.isArray(D.goals))     D.goals=[];
-        if(!Array.isArray(D.badges))    D.badges=[];
-        if(!Array.isArray(D.injuryLog)) D.injuryLog=[];
-        if(!D.pointeLog) D.pointeLog={readiness:{},shoes:[],conditioning:{}};
-        if(!Array.isArray(D.pointeLog.shoes)) D.pointeLog.shoes=[];
-        KV.set('appdata', D);
-        checkBadges();
-        applyTheme();
-        updatePointeButton();
-        renderSpotlight();
-        renderSidebar();
-        renderFeed();
+window.addEventListener('DOMContentLoaded', async () => {
+  const stored = KV.get('appdata');
+
+  if(stored) {
+    // Existing local data — merge and render immediately
+    D = mergeData(stored);
+    KV.set('appdata', D);
+    checkBadges();
+    applyTheme();
+    updatePointeButton();
+    renderSpotlight();
+    renderSidebar();
+    renderFeed();
+
+    // Then try worker: adopt remote if it's newer (lastModified wins)
+    if(workerBase()) {
+      const remote = await pullFromWorker();
+      if(remote && (remote.lastModified||0) > (D.lastModified||0)) {
+        const merged = mergeData(remote);
+        merged.workerUrl = D.workerUrl; // always keep local worker URL
+        applyData(merged);
+        toast('Data updated from sync ✓');
+      } else if(remote && (D.lastModified||0) > (remote.lastModified||0)) {
+        // Local is newer — push up
+        syncDirty = true;
+        pushToWorker();
       }
-    });
+      startSyncPing();
+    }
+
+  } else {
+    // No local data — new device. Show account setup wizard.
+    D = initData();
+    applyTheme();
+    showAccountSetup();
   }
 });
+
+// ── Account setup wizard (shown on new device with no local data) ──
+function showAccountSetup() {
+  // Step 1: Ask if they have an existing account
+  document.getElementById('account-setup-title').textContent = 'Welcome to Reverence';
+  document.getElementById('account-setup-body').innerHTML = `
+    <p class="f13 lh muted" style="margin-bottom:1.5rem;">
+      Do you already have a Reverence account on another device?
+    </p>
+    <div class="form-actions" style="flex-direction:column;gap:.65rem;">
+      <button class="btn btn-primary w100" id="btn-setup-has-account" style="justify-content:center;">
+        Yes — load my existing account
+      </button>
+      <button class="btn btn-ghost w100" id="btn-setup-new-account" style="justify-content:center;">
+        No — start fresh
+      </button>
+    </div>
+  `;
+  openModal('modal-account-setup');
+
+  document.getElementById('btn-setup-has-account').addEventListener('click', showSetupTokenEntry);
+  document.getElementById('btn-setup-new-account').addEventListener('click', ()=>{
+    closeModal('modal-account-setup');
+    KV.set('appdata', D);
+    checkBadges();
+    renderSpotlight();
+    renderSidebar();
+    renderFeed();
+    toast('Welcome to Reverence 🩰');
+  });
+}
+
+function showSetupTokenEntry() {
+  document.getElementById('account-setup-title').textContent = 'Load Existing Account';
+  document.getElementById('account-setup-body').innerHTML = `
+    <p class="f13 lh muted" style="margin-bottom:1rem;">
+      Enter your Worker URL and token from your other device.
+    </p>
+    <div class="form-group">
+      <label class="form-label">Worker URL</label>
+      <input class="input" id="setup-worker-url" placeholder="https://reverence.yourname.workers.dev"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Your Token</label>
+      <input class="input input-mono" id="setup-token" placeholder="Paste your token here…"/>
+    </div>
+    <div id="setup-status" style="min-height:1.4rem;font-size:.82rem;color:var(--red);margin-bottom:.75rem;"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" id="btn-setup-back">← Back</button>
+      <button class="btn btn-primary" id="btn-setup-load">Load Account</button>
+    </div>
+  `;
+
+  document.getElementById('btn-setup-back').addEventListener('click', showAccountSetup);
+  document.getElementById('btn-setup-load').addEventListener('click', async () => {
+    const workerUrl = document.getElementById('setup-worker-url').value.trim();
+    const token     = document.getElementById('setup-token').value.trim();
+    const statusEl  = document.getElementById('setup-status');
+
+    if(!workerUrl) { statusEl.textContent='Please enter your Worker URL.'; return; }
+    if(!token)     { statusEl.textContent='Please enter your token.'; return; }
+
+    statusEl.style.color='var(--gold2)';
+    statusEl.textContent='Looking up account…';
+
+    // Temporarily set workerUrl so pullFromWorker works
+    D.workerUrl = workerUrl;
+    const remote = await pullFromWorker(token);
+
+    if(!remote) {
+      statusEl.style.color='var(--red)';
+      statusEl.textContent='No account found for that token. Check both fields and try again.';
+      D.workerUrl='';
+      return;
+    }
+
+    const merged = mergeData(remote);
+    merged.workerUrl = workerUrl;
+    applyData(merged);
+    closeModal('modal-account-setup');
+    startSyncPing();
+    toast('Account loaded ✓');
+  });
+}
 
 // ── Global onclick handlers (called from rendered HTML strings) ───
 window.openEntry          = openEntry;
@@ -1088,3 +1255,5 @@ window.updateGoalProgress = updateGoalProgress;
 window.openModal          = openModal;
 window.cycleInjuryStatus  = cycleInjuryStatus;
 window.deleteInjury       = deleteInjury;
+window.showAccountSetup   = showAccountSetup;
+window.showSetupTokenEntry= showSetupTokenEntry;
