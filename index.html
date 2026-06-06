@@ -584,10 +584,22 @@
           <input class="input" id="p-name" placeholder="Dancer's name"/></div>
         <div class="form-group"><label class="form-label">Studio Name</label>
           <input class="input" id="p-studio" placeholder="Studio name"/></div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-heading">Cross-Device Sync</div>
         <div class="form-group">
-          <label class="form-label">User Token (KV Sync)</label>
+          <label class="form-label">User Token</label>
           <input class="input input-mono" id="p-token"/>
-          <div class="form-hint">Use the same token on another device to sync your data.</div>
+          <div class="form-hint">Your unique ID. Use the same token on every device.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Worker URL</label>
+          <input class="input" id="p-worker-url" placeholder="https://reverence.yourname.workers.dev"/>
+          <div class="form-hint">Deploy <code style="font-family:monospace;font-size:.8em;color:var(--gold2);">worker.js</code> to Cloudflare Workers and paste the URL here. Leave blank to use local storage only.</div>
+        </div>
+        <div class="row sb mt-8" style="align-items:center;">
+          <span id="sync-indicator" class="sync-indicator sync-idle">☁️ Not synced</span>
+          <button class="btn btn-outline btn-sm" id="btn-manual-sync">Sync Now</button>
         </div>
       </div>
       <div class="settings-section">
