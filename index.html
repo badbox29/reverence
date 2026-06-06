@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>Reverence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --ink:#0e1117;
+  --ink2:#161c27;
+  --ink3:#1e2738;
+  --ink4:#2a3550;
+  --ink5:#364464;
+  --rose:#c9827a;
+  --rose2:#daa59f;
+  --rose3:#ecdad8;
+  --gold:#b8985a;
+  --gold2:#d4b97a;
+  --gold3:#e8d5a8;
+  --cream:#f2ede6;
+  --muted:#6b7fa0;
+  --muted2:#8a9bbf;
+  --green:#6daa8f;
+  --red:#c07070;
+  --r:14px;
+  --r2:8px;
+}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--ink);
+  color:var(--cream);
+  font-family:'Jost',sans-serif;
+  font-weight:300;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ── Layout ── */
+#app{max-width:440px;margin:0 auto;min-height:100vh;position:relative;background:var(--ink);display:flex;flex-direction:column;}
+.content{flex:1;padding-bottom:88px;overflow-y:auto;}
+
+/* ── Grain overlay ── */
+#app::before{
+  content:'';position:fixed;inset:0;max-width:440px;margin:0 auto;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:1000;opacity:.4;
+}
+
+/* ── Navigation ── */
+.nav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:440px;
+  background:rgba(14,17,23,.95);
+  backdrop-filter:blur(20px);
+  border-top:1px solid rgba(184,152,90,.15);
+  display:flex;justify-content:space-around;
+  padding:10px 0 22px;z-index:500;
+}
+.nav-btn{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:none;border:none;cursor:pointer;padding:6px 14px;
+  color:var(--muted);transition:color .25s;
+  font-family:'Jost',sans-serif;font-size:10px;font-weight:400;letter-spacing:.06em;text-transform:uppercase;
+}
+.nav-btn .nav-icon{font-size:20px;transition:transform .2s;}
+.nav-btn.active{color:var(--rose2);}
+.nav-btn.active .nav-icon{transform:translateY(-2px);}
+
+/* ── Page header ── */
+.page-head{
+  padding:52px 22px 18px;
+  position:relative;
+}
+.page-head::after{
+  content:'';position:absolute;bottom:0;left:22px;right:22px;
+  height:1px;background:linear-gradient(90deg,var(--gold) 0%,transparent 70%);opacity:.3;
+}
+.page-head h1{
+  font-family:'Cormorant Garamond',serif;
+  font-size:42px;font-weight:400;line-height:1.05;
+  letter-spacing:-.01em;
+}
+.page-head h1 em{font-style:italic;color:var(--rose2);}
+.page-head p{color:var(--muted);font-size:12px;margin-top:5px;letter-spacing:.04em;}
+
+/* ── App title ── */
+.app-wordmark{
+  font-family:'Cormorant Garamond',serif;
+  font-style:italic;font-weight:300;
+  font-size:13px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--gold);
+  margin-bottom:4px;display:block;
+}
+
+/* ── Cards ── */
+.card{
+  background:var(--ink2);border:1px solid rgba(255,255,255,.06);
+  border-radius:var(--r);padding:18px;margin:0 16px 10px;
+  transition:border-color .2s;
+}
+.card:active{border-color:rgba(201,130,122,.2);}
+.card-inner{
+  background:var(--ink3);border-radius:var(--r2);
+  padding:12px 14px;margin-bottom:8px;
+}
+
+/* ── Buttons ── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:10px 20px;border-radius:100px;border:none;cursor:pointer;
+  font-family:'Jost',sans-serif;font-size:12px;font-weight:400;
+  letter-spacing:.06em;text-transform:uppercase;transition:all .2s;
+}
+.btn-rose{background:var(--rose);color:var(--ink);}
+.btn-rose:hover{background:var(--rose2);}
+.btn-gold{background:var(--gold);color:var(--ink);}
+.btn-gold:hover{background:var(--gold2);}
+.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--cream);}
+.btn-ghost:hover{border-color:var(--rose);color:var(--rose2);}
+.btn-danger{background:transparent;border:1px solid var(--red);color:var(--red);}
+.btn-sm{padding:7px 14px;font-size:11px;}
+.btn-xs{padding:5px 10px;font-size:10px;}
+
+/* ── FAB ── */
+.fab{
+  position:fixed;bottom:86px;
+  right:calc(50% - 220px + 18px);
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(140deg,var(--rose),var(--gold));
+  border:none;color:var(--ink);font-size:26px;cursor:pointer;
+  box-shadow:0 6px 24px rgba(201,130,122,.35);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .2s,box-shadow .2s;z-index:499;
+  font-weight:300;
+}
+.fab:hover{transform:scale(1.07);box-shadow:0 8px 32px rgba(201,130,122,.45);}
+
+/* ── Tags ── */
+.tag{display:inline-block;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:400;letter-spacing:.05em;}
+.tag-rose{background:rgba(201,130,122,.15);color:var(--rose2);}
+.tag-gold{background:rgba(184,152,90,.15);color:var(--gold2);}
+.tag-green{background:rgba(109,170,143,.15);color:var(--green);}
+.tag-muted{background:var(--ink3);color:var(--muted2);}
+.tag-active{background:rgba(109,170,143,.12);color:var(--green);border:1px solid rgba(109,170,143,.25);}
+.tag-archived{background:var(--ink3);color:var(--muted);border:1px solid rgba(255,255,255,.06);}
+
+/* ── Progress ── */
+.prog-track{height:5px;background:var(--ink4);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--rose),var(--gold));transition:width .5s ease;}
+
+/* ── Stars ── */
+.stars{display:flex;gap:5px;}
+.star{font-size:20px;cursor:pointer;transition:transform .15s;color:var(--ink4);line-height:1;}
+.star.lit{color:var(--gold2);}
+.star:hover{transform:scale(1.25);}
+
+/* ── Forms ── */
+.form-group{margin-bottom:14px;}
+.form-label{
+  display:block;font-size:10px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;
+}
+.form-input,.form-select,.form-textarea{
+  width:100%;background:var(--ink3);border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--r2);padding:11px 13px;color:var(--cream);
+  font-family:'Jost',sans-serif;font-size:14px;font-weight:300;
+  outline:none;transition:border-color .2s;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:rgba(201,130,122,.5);}
+.form-input::placeholder{color:var(--muted);}
+.form-textarea{resize:vertical;min-height:80px;line-height:1.6;}
+.form-select option{background:var(--ink2);color:var(--cream);}
+.form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.form-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+
+/* ── Chips ── */
+.chips{display:flex;flex-wrap:wrap;gap:7px;}
+.chip{
+  padding:6px 14px;border-radius:100px;
+  border:1px solid rgba(255,255,255,.08);background:var(--ink3);
+  color:var(--muted);font-size:11px;letter-spacing:.04em;
+  cursor:pointer;transition:all .2s;
+}
+.chip.on{background:rgba(201,130,122,.12);border-color:rgba(201,130,122,.4);color:var(--rose2);}
+
+/* ── Section title ── */
+.sec-title{
+  font-family:'Cormorant Garamond',serif;font-size:11px;
+  letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);padding:0 20px;margin:20px 0 10px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+
+/* ── Modal ── */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(14,17,23,.88);
+  z-index:600;display:flex;align-items:flex-end;justify-content:center;
+  animation:bgIn .2s ease;
+}
+@keyframes bgIn{from{opacity:0}to{opacity:1}}
+.modal{
+  background:var(--ink2);border-radius:var(--r) var(--r) 0 0;
+  width:100%;max-width:440px;max-height:92vh;overflow-y:auto;
+  padding:10px 22px 44px;
+  border-top:1px solid rgba(184,152,90,.2);
+  animation:modalUp .28s cubic-bezier(.16,1,.3,1);
+}
+@keyframes modalUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-handle{width:36px;height:3px;background:var(--ink5);border-radius:2px;margin:8px auto 22px;}
+.modal h2{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:400;margin-bottom:20px;}
+
+/* ── Dashboard specifics ── */
+.hero{
+  padding:52px 22px 28px;
+  background:linear-gradient(180deg,var(--ink2) 0%,var(--ink) 100%);
+  position:relative;overflow:hidden;
+}
+.hero::before{
+  content:'Reverence';
+  position:absolute;right:-10px;top:16px;
+  font-family:'Cormorant Garamond',serif;font-style:italic;
+  font-size:96px;font-weight:300;opacity:.04;color:var(--gold);
+  white-space:nowrap;pointer-events:none;
+}
+.hero-date{font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;}
+.hero-name{font-family:'Cormorant Garamond',serif;font-size:38px;font-weight:400;line-height:1.1;}
+.hero-name em{font-style:italic;color:var(--rose2);}
+
+.stat-grid{display:grid;grid-template-columns:auto 1fr;gap:10px;margin:0 16px 10px;}
+.stat-card{background:var(--ink2);border:1px solid rgba(255,255,255,.06);border-radius:var(--r);padding:16px;}
+.streak-ring{
+  width:70px;height:70px;border-radius:50%;
+  border:2px solid var(--gold);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  margin-bottom:6px;
+  background:radial-gradient(circle,rgba(184,152,90,.07),transparent);
+}
+.streak-num{font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--gold2);line-height:1;}
+.streak-lbl{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.stat-val{font-family:'Cormorant Garamond',serif;font-size:34px;color:var(--cream);line-height:1;}
+.stat-lbl{font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.04em;}
+.mini-stats{display:flex;flex-direction:column;gap:10px;}
+
+/* ── Checkboxes ── */
+.check-row{
+  display:flex;align-items:center;gap:13px;padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;
+}
+.check-box{
+  width:22px;height:22px;border-radius:5px;flex-shrink:0;
+  border:1.5px solid var(--ink5);background:transparent;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.check-box.checked{background:var(--green);border-color:var(--green);}
+.check-box.checked-rose{background:var(--rose);border-color:var(--rose);}
+.check-tick{color:var(--ink);font-size:13px;}
+.check-label{font-size:13px;transition:color .2s;}
+.check-label.done{color:var(--muted);}
+
+/* ── Range input ── */
+input[type=range]{
+  width:100%;accent-color:var(--rose);
+  background:transparent;cursor:pointer;
+}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:52px 22px;color:var(--muted);}
+.empty-icon{font-size:44px;margin-bottom:14px;opacity:.6;}
+.empty p{font-size:13px;line-height:1.7;color:var(--muted2);}
+
+/* ── Divider ── */
+.divider{height:1px;background:rgba(255,255,255,.05);margin:14px 0;}
+
+/* ── Season header card ── */
+.season-card{background:var(--ink2);border:1px solid rgba(255,255,255,.06);border-radius:var(--r);margin:0 16px 10px;overflow:hidden;}
+.season-card-head{padding:16px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;}
+.season-card-body{padding:0 18px 16px;border-top:1px solid rgba(255,255,255,.05);}
+.season-name{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--ink5);border-radius:2px;}
+
+/* ── Animations ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{animation:fadeUp .32s ease both;}
+.fade-up-1{animation:fadeUp .32s .06s ease both;}
+.fade-up-2{animation:fadeUp .32s .12s ease both;}
+.fade-up-3{animation:fadeUp .32s .18s ease both;}
+.fade-up-4{animation:fadeUp .32s .24s ease both;}
+
+/* ── Utility ── */
+.flex{display:flex;}.flex-1{flex:1;}.gap-8{gap:8px;}.gap-10{gap:10px;}.gap-12{gap:12px;}
+.row{display:flex;align-items:center;}.sb{justify-content:space-between;}
+.mt-4{margin-top:4px;}.mt-6{margin-top:6px;}.mt-8{margin-top:8px;}.mt-12{margin-top:12px;}.mt-16{margin-top:16px;}
+.mb-8{margin-bottom:8px;}.mb-12{margin-bottom:12px;}
+.f12{font-size:12px;}.f13{font-size:13px;}.f14{font-size:14px;}.f11{font-size:11px;}
+.fw5{font-weight:500;}.muted{color:var(--muted2);}.serif{font-family:'Cormorant Garamond',serif;}
+.lh{line-height:1.6;}
+.hidden{display:none!important;}
+.w100{width:100%;}
+
+/* Loading */
+#loading{
+  position:fixed;inset:0;background:var(--ink);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  z-index:9999;transition:opacity .4s;
+}
+#loading .load-word{
+  font-family:'Cormorant Garamond',serif;font-style:italic;
+  font-size:36px;color:var(--rose2);
+  animation:pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+#loading p{font-size:12px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="load-word">Reverence</div>
+  <p>Loading your journal…</p>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="content" id="main-content"></div>
+  <nav class="nav" id="bottom-nav"></nav>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════════
+const STYLES = ["Ballet","Contemporary","Lyrical","Jazz","Tap","Hip-Hop"];
+const GROUPS = ["Company","Competition","Pointe"];
+const MOODS  = ["✨ Inspired","😊 Good","😐 Okay","😓 Tired","💪 Strong"];
+const DAYS   = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const CLASS_TYPES = ["Regular","Intensive","Masterclass","Camp","Rehearsal","Other"];
+const BODY_AREAS  = ["Foot/Ankle","Knee","Hip","Lower Back","Upper Back","Shoulder","Wrist","Neck","Other"];
+const INJ_STATUS  = ["Active","Recovering","Healed"];
+
+const BADGE_DEFS = [
+  {id:"first_entry", icon:"🩰", label:"First Steps",    desc:"Logged your first session"},
+  {id:"streak_7",    icon:"🔥", label:"Week Warrior",   desc:"7-day practice streak"},
+  {id:"goals_1",     icon:"⭐", label:"Goal Getter",    desc:"Completed your first goal"},
+  {id:"pointe_ready",icon:"🌟", label:"Pointe Ready",   desc:"Completed readiness checklist"},
+  {id:"hours_10",    icon:"⏱️", label:"10 Hours",       desc:"Logged 10 hours of practice"},
+  {id:"comp_1",      icon:"🏆", label:"Competitor",     desc:"Logged first competition"},
+  {id:"hours_50",    icon:"💫", label:"50 Hours",       desc:"Logged 50 hours of practice"},
+  {id:"styles_all",  icon:"🎭", label:"All Styles",     desc:"Logged sessions in all 6 styles"},
+];
+
+const DEFAULT_SKILLS = {
+  Ballet:["Pliés","Tendus","Dégagés","Ronds de jambe","Arabesques","Attitudes","Pirouettes","Grand battement","Adagio","Pointe work"],
+  Contemporary:["Floor work","Improvisation","Partnering","Release technique","Contraction","Spiral","Balance","Jumps","Turns","Storytelling"],
+  Lyrical:["Emotional expression","Flexibility","Turns","Leaps","Transitions","Musicality","Arms","Footwork","Lifts","Performance"],
+  Jazz:["Isolations","Kicks","Turns","Leaps","Across the floor","Styling","Rhythmic accuracy","Performance energy","Flexibility","Strength"],
+  Tap:["Shuffles","Flaps","Buffalo","Cramp roll","Wings","Paradiddle","Rhythm","Speed","Clarity","Improvisation"],
+  "Hip-Hop":["Grooves","Popping","Locking","Footwork","Freestyle","Musicality","Levels","Strength","Battles","Cyphers"],
+};
+
+const POINTE_READINESS = [
+  "Teacher clearance obtained","Sufficient ankle strength",
+  "Consistent parallel relevé","Core strength assessed",
+  "Proper pointe shoe fitting","First pointe lesson completed",
+];
+const POINTE_COND = [
+  "Theraband exercises","Calf raises","Ankle circles",
+  "Arch strengthening","Balance work","Core stability",
+];
+
+// ═══════════════════════════════════════════════════════════════════
+// STORAGE (localStorage as KV — swap keys for real KV if needed)
+// ═══════════════════════════════════════════════════════════════════
+const KV = {
+  get(k){try{const v=localStorage.getItem('rev_'+k);return v?JSON.parse(v):null;}catch{return null;}},
+  set(k,v){try{localStorage.setItem('rev_'+k,JSON.stringify(v));}catch{}},
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════
+const uid=()=>Math.random().toString(36).slice(2,10);
+const today=()=>new Date().toISOString().split('T')[0];
+const fmtDate=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+const fmtDateShort=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const dayName=()=>new Date().toLocaleDateString('en-US',{weekday:'long'});
+const todayFmt=()=>new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+let D = null; // global data object
+let currentTab = 'home';
+let modalStack = []; // stack of modal closers
+
+function initData(){
+  return {
+    userToken: uid(),
+    userName:'',
+    studioName:'',
+    activeStyles:[...STYLES],
+    activeGroups:[...GROUPS],
+    seasons:[],
+    entries:[],
+    skills: Object.fromEntries(STYLES.map(s=>[s,DEFAULT_SKILLS[s].map(n=>({id:uid(),name:n,level:0}))])),
+    goals:[],
+    competitions:[],
+    pointeLog:{readiness:{},shoes:[],conditioning:{}},
+    badges:[],
+    injuryLog:[],
+  };
+}
+
+function save(){
+  KV.set('appdata', D);
+}
+
+function checkBadges(){
+  const b = D.badges;
+  const add = id=>{ if(!b.includes(id)) b.push(id); };
+  if(D.entries.length >= 1) add('first_entry');
+  const hrs = D.entries.reduce((a,e)=>a+(e.duration||0),0)/60;
+  if(hrs >= 10) add('hours_10');
+  if(hrs >= 50) add('hours_50');
+  if(D.competitions.length >= 1) add('comp_1');
+  if(D.goals.some(g=>g.completed)) add('goals_1');
+  const readAll = POINTE_READINESS.every(r=>D.pointeLog.readiness[r]);
+  if(readAll) add('pointe_ready');
+  const usedStyles = new Set(D.entries.map(e=>e.style));
+  if(STYLES.every(s=>usedStyles.has(s))) add('styles_all');
+  // Streak
+  let streak=0,cur=new Date();cur.setHours(0,0,0,0);
+  for(let i=0;i<60;i++){
+    const ds=cur.toISOString().split('T')[0];
+    if(D.entries.some(e=>e.date===ds)){streak++;cur.setDate(cur.getDate()-1);}
+    else if(i===0){cur.setDate(cur.getDate()-1);}
+    else break;
+  }
+  if(streak>=7) add('streak_7');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════════════════════
+const TABS=[
+  {id:'home',   icon:'🏠', label:'Home'},
+  {id:'journal',icon:'📓', label:'Journal'},
+  {id:'schedule',icon:'📅',label:'Schedule'},
+  {id:'skills', icon:'⭐', label:'Skills'},
+  {id:'profile',icon:'👤', label:'Profile'},
+];
+
+function renderNav(){
+  document.getElementById('bottom-nav').innerHTML = TABS.map(t=>`
+    <button class="nav-btn${currentTab===t.id?' active':''}" onclick="switchTab('${t.id}')">
+      <span class="nav-icon">${t.icon}</span>
+      <span>${t.label}</span>
+    </button>
+  `).join('');
+}
+
+function switchTab(tab){
+  currentTab = tab;
+  renderNav();
+  renderContent();
+}
+
+function renderContent(){
+  const el = document.getElementById('main-content');
+  el.innerHTML = '';
+  if(currentTab==='home')     el.innerHTML = renderHome();
+  if(currentTab==='journal')  el.innerHTML = renderJournal();
+  if(currentTab==='schedule') el.innerHTML = renderSchedule();
+  if(currentTab==='skills')   el.innerHTML = renderSkills();
+  if(currentTab==='profile')  el.innerHTML = renderProfile();
+  el.scrollTop = 0;
+  attachListeners();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HOME TAB
+// ═══════════════════════════════════════════════════════════════════
+function renderHome(){
+  const activeSeason = D.seasons.find(s=>s.active)||null;
+  const todayClasses = activeSeason
+    ? (activeSeason.classes||[]).filter(c=>c.days&&c.days.includes(dayName()))
+    : [];
+  const totalHrs = D.entries.reduce((a,e)=>a+(e.duration||0),0)/60;
+  const weekEntries = D.entries.filter(e=>{
+    const diff=(new Date()-new Date(e.date+'T12:00:00'))/86400000;
+    return diff<=7;
+  });
+  const weekHrs = weekEntries.reduce((a,e)=>a+(e.duration||0),0)/60;
+  let streak=0,cur=new Date();cur.setHours(0,0,0,0);
+  for(let i=0;i<60;i++){
+    const ds=cur.toISOString().split('T')[0];
+    if(D.entries.some(e=>e.date===ds)){streak++;cur.setDate(cur.getDate()-1);}
+    else if(i===0){cur.setDate(cur.getDate()-1);}
+    else break;
+  }
+  const recentEntries=[...D.entries].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,3);
+  const activeGoals=D.goals.filter(g=>!g.completed).slice(0,2);
+  const earnedBadges=BADGE_DEFS.filter(b=>D.badges.includes(b.id));
+
+  return `
+  <div class="fade-up">
+    <div class="hero">
+      <div class="hero-date">${todayFmt()}</div>
+      <div class="row gap-8 mb-8"><span class="app-wordmark">Reverence</span></div>
+      <div class="hero-name">${D.userName?`Hello, <em>${esc(D.userName)}</em> 🩰`:'Welcome back <em>dancer</em> 🩰'}</div>
+      ${activeSeason?`<div class="mt-8"><span class="tag tag-active">● ${esc(activeSeason.name)}</span></div>`:''}
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card" style="display:flex;flex-direction:column;align-items:center;">
+        <div class="streak-ring">
+          <div class="streak-num">${streak}</div>
+          <div class="streak-lbl">streak</div>
+        </div>
+        <div class="stat-lbl" style="text-align:center;">Day streak</div>
+      </div>
+      <div class="mini-stats">
+        <div class="stat-card">
+          <div class="stat-val">${weekHrs.toFixed(1)}</div>
+          <div class="stat-lbl">Hours this week</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val">${D.entries.length}</div>
+          <div class="stat-lbl">Total sessions</div>
+        </div>
+      </div>
+    </div>
+
+    ${todayClasses.length?`
+    <div class="sec-title">Today's Classes</div>
+    ${todayClasses.map(c=>`
+      <div class="card fade-up-1 row sb">
+        <div>
+          <div class="fw5 f14">${esc(c.name)}</div>
+          <div class="f12 muted mt-4">${esc(c.time)} · ${esc(c.teacher)}</div>
+        </div>
+        <span class="tag tag-rose">${esc(c.style)}</span>
+      </div>
+    `).join('')}`:''}
+
+    ${activeGoals.length?`
+    <div class="sec-title">Active Goals</div>
+    ${activeGoals.map((g,i)=>`
+      <div class="card fade-up-${i+1}">
+        <div class="row sb mb-8">
+          <span class="fw5 f14">${esc(g.title)}</span>
+          <span class="tag tag-rose">${esc(g.style)}</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:${g.progress||0}%"></div></div>
+        <div class="f11 muted mt-6">Target: ${g.targetDate?fmtDate(g.targetDate):'—'}</div>
+      </div>
+    `).join('')}`:''}
+
+    ${recentEntries.length?`
+    <div class="sec-title">Recent Journal</div>
+    ${recentEntries.map((e,i)=>{
+      const season=D.seasons.find(s=>s.id===e.seasonId);
+      return `
+      <div class="card fade-up-${i+1}" onclick="openEntryDetail('${e.id}')" style="cursor:pointer;">
+        <div class="row sb">
+          <div style="flex:1">
+            <div class="f11 muted">${fmtDateShort(e.date)}</div>
+            <div class="fw5 f14 mt-4">${esc(e.title||e.style)}</div>
+            <div class="flex gap-8 mt-6" style="flex-wrap:wrap;">
+              <span class="tag tag-rose">${esc(e.style)}</span>
+              ${season?`<span class="tag tag-muted">${esc(season.name)}</span>`:''}
+            </div>
+            ${e.notes?`<div class="f13 muted mt-8 lh">${esc(e.notes.slice(0,90))}${e.notes.length>90?'…':''}</div>`:''}
+          </div>
+          <div style="text-align:right;margin-left:12px;flex-shrink:0;">
+            <div style="font-size:22px;">${e.mood?.split(' ')[0]||''}</div>
+            <div class="f11 muted mt-4">${e.duration}m</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}`:''}
+
+    ${earnedBadges.length?`
+    <div class="sec-title">Badges</div>
+    <div class="card fade-up-3" style="display:flex;flex-wrap:wrap;gap:16px;">
+      ${earnedBadges.map(b=>`
+        <div style="text-align:center;width:58px;">
+          <div style="font-size:26px;">${b.icon}</div>
+          <div class="f11 mt-4" style="color:var(--gold2);">${b.label}</div>
+        </div>
+      `).join('')}
+    </div>`:''}
+
+    <div style="height:24px;"></div>
+    <button class="fab" onclick="openLogModal()">＋</button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// JOURNAL TAB
+// ═══════════════════════════════════════════════════════════════════
+let jFilterSeason='all', jFilterStyle='all';
+
+function renderJournal(){
+  const entries=[...D.entries]
+    .sort((a,b)=>b.date.localeCompare(a.date))
+    .filter(e=>jFilterSeason==='all'||e.seasonId===jFilterSeason)
+    .filter(e=>jFilterStyle==='all'||e.style===jFilterStyle);
+
+  return `
+  <div class="fade-up">
+    <div class="page-head">
+      <span class="app-wordmark">Reverence</span>
+      <h1>Journal</h1>
+      <p>${D.entries.length} entries total</p>
+    </div>
+
+    <div class="flex gap-8" style="padding:0 16px 14px;">
+      <select class="form-select flex-1" id="j-filter-season" onchange="jFilterSeason=this.value;renderContent()">
+        <option value="all">All Seasons</option>
+        ${D.seasons.map(s=>`<option value="${s.id}" ${jFilterSeason===s.id?'selected':''}>${esc(s.name)}${s.archived?' (archived)':''}</option>`).join('')}
+      </select>
+      <select class="form-select flex-1" id="j-filter-style" onchange="jFilterStyle=this.value;renderContent()">
+        <option value="all">All Styles</option>
+        ${D.activeStyles.map(s=>`<option value="${s}" ${jFilterStyle===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+
+    ${entries.length===0?`<div class="empty"><div class="empty-icon">📓</div><p>No entries yet.<br>Tap + to log your first session.</p></div>`
+    : entries.map(e=>{
+        const season=D.seasons.find(s=>s.id===e.seasonId);
+        const cls=season?.classes?.find(c=>c.id===e.classId);
+        const archived=season?.archived;
+        return `
+        <div class="card" onclick="openEntryDetail('${e.id}')" style="cursor:pointer;">
+          <div class="row sb">
+            <div style="flex:1">
+              <div class="f11 muted">${fmtDateShort(e.date)}</div>
+              <div class="fw5 f14 mt-4">${esc(e.title||e.style)}</div>
+              <div class="flex gap-8 mt-6" style="flex-wrap:wrap;">
+                <span class="tag tag-rose">${esc(e.style)}</span>
+                ${season?`<span class="tag tag-muted">${esc(season.name)}</span>`:''}
+                ${cls?`<span class="tag tag-gold">${esc(cls.name)}</span>`:''}
+              </div>
+              ${e.notes?`<div class="f13 muted mt-8 lh">${esc(e.notes.slice(0,100))}${e.notes.length>100?'…':''}</div>`:''}
+            </div>
+            <div style="text-align:right;margin-left:12px;flex-shrink:0;">
+              <div style="font-size:22px;">${e.mood?.split(' ')[0]||''}</div>
+              <div class="f11 muted mt-4">${e.duration}m</div>
+              ${archived?'<div class="f11 muted mt-4">🔒</div>':''}
+            </div>
+          </div>
+        </div>`;
+    }).join('')}
+
+    <div style="height:24px;"></div>
+    <button class="fab" onclick="openLogModal()">＋</button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SCHEDULE TAB
+// ═══════════════════════════════════════════════════════════════════
+let schedView='active'; // active | archived
+let expandedSeason=null;
+
+function renderSchedule(){
+  const seasons=D.seasons.filter(s=>schedView==='active'?!s.archived:s.archived);
+  return `
+  <div class="fade-up">
+    <div class="page-head">
+      <span class="app-wordmark">Reverence</span>
+      <h1>Schedule</h1>
+      <p>Seasons &amp; classes</p>
+    </div>
+
+    <div class="flex gap-8" style="padding:0 16px 14px;align-items:center;">
+      <button class="btn btn-sm ${schedView==='active'?'btn-rose':'btn-ghost'}" onclick="schedView='active';renderContent()">Active</button>
+      <button class="btn btn-sm ${schedView==='archived'?'btn-rose':'btn-ghost'}" onclick="schedView='archived';renderContent()">Archived</button>
+      ${schedView==='active'?`<button class="btn btn-gold btn-sm" style="margin-left:auto;" onclick="openNewSeasonModal()">＋ Season</button>`:''}
+    </div>
+
+    ${seasons.length===0?`<div class="empty"><div class="empty-icon">📅</div><p>${schedView==='active'?'No active seasons.<br>Tap "+ Season" to create one.':'No archived seasons yet.'}</p></div>`
+    : seasons.map(s=>{
+        const expanded=expandedSeason===s.id;
+        const ec=D.entries.filter(e=>e.seasonId===s.id).length;
+        return `
+        <div class="season-card">
+          <div class="season-card-head" onclick="expandedSeason='${expanded?'':s.id}';renderContent()">
+            <div>
+              <div class="row gap-8 mb-8">
+                <span class="season-name">${esc(s.name)}</span>
+                ${s.active?`<span class="tag tag-active">● Active</span>`:''}
+                ${s.archived?`<span class="tag tag-archived">🔒 Archived</span>`:''}
+              </div>
+              <div class="f12 muted">${s.startDate?fmtDate(s.startDate):''} – ${s.endDate?fmtDate(s.endDate):''}</div>
+              <div class="f12 muted mt-4">${(s.classes||[]).length} classes · ${ec} journal entries</div>
+            </div>
+            <span class="muted" style="font-size:16px;">${expanded?'▲':'▼'}</span>
+          </div>
+          ${expanded?`
+          <div class="season-card-body">
+            <div class="flex gap-8" style="flex-wrap:wrap;margin-bottom:14px;padding-top:14px;">
+              ${!s.archived?`<button class="btn btn-ghost btn-xs" onclick="toggleSeasonActive('${s.id}')">${s.active?'Deactivate':'Set Active'}</button>`:''}
+              <button class="btn btn-ghost btn-xs" onclick="toggleArchive('${s.id}')">${s.archived?'Unarchive':'Archive'}</button>
+              ${!s.archived?`<button class="btn btn-ghost btn-xs" onclick="openNewClassModal('${s.id}')">＋ Class</button>`:''}
+              <button class="btn btn-danger btn-xs" onclick="deleteSeason('${s.id}')">Delete</button>
+            </div>
+            ${(s.classes||[]).length===0?`<p class="f13 muted">No classes added yet.</p>`
+            : (s.classes||[]).map(c=>`
+              <div class="card-inner row sb">
+                <div>
+                  <div class="fw5 f14">${esc(c.name)}</div>
+                  <div class="f12 muted mt-4">${c.days?.join(', ')||''} · ${esc(c.time)} · ${esc(c.teacher)}</div>
+                  <div class="flex gap-8 mt-6">
+                    <span class="tag tag-rose">${esc(c.style)}</span>
+                    <span class="tag tag-muted">${esc(c.type)}</span>
+                    ${c.group?`<span class="tag tag-gold">${esc(c.group)}</span>`:''}
+                  </div>
+                </div>
+                ${!s.archived?`<button onclick="deleteClass('${s.id}','${c.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:4px;">✕</button>`:''}
+              </div>
+            `).join('')}
+          </div>`:''}
+        </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SKILLS TAB
+// ═══════════════════════════════════════════════════════════════════
+let skillsView='styles'; // styles | groups
+let activeStyle=null;
+let activeGroup=null;
+
+function renderSkills(){
+  if(!activeStyle) activeStyle=D.activeStyles[0]||'Ballet';
+  if(!activeGroup) activeGroup=D.activeGroups[0]||'Company';
+
+  const styleSkills=D.skills[activeStyle]||[];
+  const avg=styleSkills.length?styleSkills.reduce((a,s)=>a+s.level,0)/styleSkills.length/5*100:0;
+
+  return `
+  <div class="fade-up">
+    <div class="page-head">
+      <span class="app-wordmark">Reverence</span>
+      <h1>Skills</h1>
+    </div>
+
+    <div class="flex gap-8" style="padding:0 16px 12px;">
+      <button class="btn btn-sm ${skillsView==='styles'?'btn-rose':'btn-ghost'}" onclick="skillsView='styles';renderContent()">By Style</button>
+      <button class="btn btn-sm ${skillsView==='groups'?'btn-rose':'btn-ghost'}" onclick="skillsView='groups';renderContent()">Groups</button>
+    </div>
+
+    ${skillsView==='styles'?`
+      <div class="flex" style="gap:8px;padding:0 16px 14px;overflow-x:auto;padding-bottom:8px;">
+        ${D.activeStyles.map(s=>`<span class="chip${activeStyle===s?' on':''}" onclick="activeStyle='${s}';renderContent()" style="white-space:nowrap;">${s}</span>`).join('')}
+      </div>
+      <div class="card row" style="gap:16px;">
+        <div style="flex:1;">
+          <div class="serif" style="font-size:18px;">${activeStyle} Overview</div>
+          <div class="prog-track mt-8"><div class="prog-fill" style="width:${avg}%"></div></div>
+          <div class="f12 muted mt-6">${Math.round(avg)}% overall progress</div>
+        </div>
+        <div class="serif" style="font-size:44px;color:var(--gold2);line-height:1;">${Math.round(avg)}%</div>
+      </div>
+      <div class="sec-title">Techniques</div>
+      ${styleSkills.map(sk=>`
+        <div class="card" style="padding:13px 16px;">
+          <div class="row sb mb-8">
+            <span class="fw5 f14">${esc(sk.name)}</span>
+            <span class="f13" style="color:var(--gold2);">${'★'.repeat(sk.level)}${'☆'.repeat(5-sk.level)}</span>
+          </div>
+          <div class="prog-track mb-8"><div class="prog-fill" style="width:${sk.level/5*100}%"></div></div>
+          <div class="stars">
+            ${[1,2,3,4,5].map(n=>`<span class="star${n<=sk.level?' lit':''}" onclick="setSkill('${activeStyle}','${sk.id}',${n})">★</span>`).join('')}
+          </div>
+        </div>
+      `).join('')}
+    `:renderGroupsSection()}
+  </div>`;
+}
+
+function renderGroupsSection(){
+  return `
+    <div class="flex gap-8" style="padding:0 16px 14px;">
+      ${D.activeGroups.map(g=>`<span class="chip${activeGroup===g?' on':''}" onclick="activeGroup='${g}';renderContent()">${g}</span>`).join('')}
+    </div>
+    ${activeGroup==='Pointe'?renderPointe():''}
+    ${activeGroup==='Competition'?renderCompetition():''}
+    ${activeGroup==='Company'?renderCompany():''}
+  `;
+}
+
+function renderPointe(){
+  const rd=D.pointeLog.readiness||{};
+  const cd=D.pointeLog.conditioning||{};
+  const shoes=D.pointeLog.shoes||[];
+  const doneCount=POINTE_READINESS.filter(r=>rd[r]).length;
+  return `
+    <div class="sec-title">Readiness Checklist <span style="color:var(--gold2);">${doneCount}/${POINTE_READINESS.length}</span></div>
+    <div class="card">
+      ${POINTE_READINESS.map(item=>`
+        <div class="check-row" onclick="togglePointe('readiness','${esc(item)}')">
+          <div class="check-box${rd[item]?' checked':''}">
+            ${rd[item]?'<span class="check-tick">✓</span>':''}
+          </div>
+          <span class="check-label${rd[item]?' done':''}">${esc(item)}</span>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="sec-title">Conditioning</div>
+    <div class="card">
+      ${POINTE_COND.map(item=>`
+        <div class="check-row" onclick="togglePointe('conditioning','${esc(item)}')">
+          <div class="check-box${cd[item]?' checked-rose':''}">
+            ${cd[item]?'<span class="check-tick">✓</span>':''}
+          </div>
+          <span class="check-label${cd[item]?' done':''}">${esc(item)}</span>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="sec-title row sb" style="padding-right:16px;">
+      <span>Pointe Shoe Log</span>
+      <button class="btn btn-ghost btn-xs" onclick="openShoeModal()">＋ Add Fitting</button>
+    </div>
+    ${shoes.length===0?`<div class="empty" style="padding:24px;"><div class="empty-icon" style="font-size:32px;">🩰</div><p>No shoe fittings logged yet.</p></div>`
+    : shoes.map(sh=>`
+      <div class="card">
+        <div class="row sb">
+          <div class="fw5 f14">${esc(sh.brand)}</div>
+          <span class="tag tag-muted">${fmtDateShort(sh.date)}</span>
+        </div>
+        <div class="f13 muted mt-6">Size ${esc(sh.size)} · Vamp: ${esc(sh.vamp)} · Shank: ${esc(sh.shank)}</div>
+        ${sh.notes?`<div class="f13 mt-8 lh">${esc(sh.notes)}</div>`:''}
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderCompetition(){
+  return `
+    <div style="padding:0 16px 12px;">
+      <button class="btn btn-gold btn-sm" onclick="openCompModal()">＋ Log Competition</button>
+    </div>
+    ${D.competitions.length===0?`<div class="empty"><div class="empty-icon">🏆</div><p>No competitions logged yet.</p></div>`
+    : [...D.competitions].reverse().map(c=>`
+      <div class="card">
+        <div class="row sb">
+          <div>
+            <div class="fw5 f14">${esc(c.event)}</div>
+            <div class="f12 muted mt-4">${fmtDateShort(c.date)} · ${esc(c.venue)}</div>
+            <div class="flex gap-8 mt-6">
+              <span class="tag tag-rose">${esc(c.style)}</span>
+              ${c.piece?`<span class="tag tag-muted">${esc(c.piece)}</span>`:''}
+            </div>
+          </div>
+          ${c.placement?`
+          <div style="text-align:center;flex-shrink:0;margin-left:12px;">
+            <div class="serif" style="font-size:36px;color:var(--gold2);line-height:1;">${esc(c.placement)}</div>
+            <div class="f11 muted">place</div>
+          </div>`:''}
+        </div>
+        ${c.score?`<div class="f12 muted mt-8">Score: ${esc(c.score)}</div>`:''}
+        ${c.costume||c.music?`<div class="f12 muted mt-4">${c.costume?`Costume: ${esc(c.costume)}`:''}${c.costume&&c.music?' · ':''}${c.music?`Music: ${esc(c.music)}`:''}</div>`:''}
+        ${c.feedback?`<div class="divider"></div><div class="f13 lh" style="color:var(--muted2);">${esc(c.feedback)}</div>`:''}
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderCompany(){
+  const companyEntries=D.entries.filter(e=>{
+    const s=D.seasons.find(x=>x.id===e.seasonId&&x.active);
+    if(!s) return false;
+    const c=s.classes?.find(x=>x.id===e.classId);
+    return c?.group==='Company';
+  });
+  return `
+    <div class="card">
+      <div class="serif" style="font-size:20px;margin-bottom:10px;">Company</div>
+      <p class="f13 lh muted">Log company rehearsals as classes in your active season, tagged with the Company group. They'll be tracked here and appear in your journal.</p>
+      <div class="divider"></div>
+      <div class="row sb">
+        <span class="f13 muted">Rehearsals this season</span>
+        <span class="serif" style="font-size:24px;color:var(--gold2);">${companyEntries.length}</span>
+      </div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROFILE TAB
+// ═══════════════════════════════════════════════════════════════════
+function renderProfile(){
+  const activeGoals=D.goals.filter(g=>!g.completed);
+  const completedGoals=D.goals.filter(g=>g.completed);
+  return `
+  <div class="fade-up">
+    <div class="page-head">
+      <span class="app-wordmark">Reverence</span>
+      <h1>Profile</h1>
+    </div>
+
+    <div class="sec-title">Personal</div>
+    <div class="card">
+      <div class="form-group">
+        <label class="form-label">Your Name</label>
+        <input class="form-input" id="p-name" placeholder="Dancer's name" value="${esc(D.userName)}"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Studio Name</label>
+        <input class="form-input" id="p-studio" placeholder="Studio name" value="${esc(D.studioName)}"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">User Token (KV Sync)</label>
+        <input class="form-input" id="p-token" value="${esc(D.userToken)}" style="font-family:monospace;font-size:12px;"/>
+        <div class="f11 muted mt-4">Use the same token on another device to sync your data.</div>
+      </div>
+      <button class="btn btn-rose" onclick="saveProfile()">Save Profile</button>
+    </div>
+
+    <div class="sec-title">Active Styles</div>
+    <div class="card">
+      <div class="chips">
+        ${STYLES.map(s=>`<span class="chip${D.activeStyles.includes(s)?' on':''}" onclick="toggleStyle('${s}')">${s}</span>`).join('')}
+      </div>
+    </div>
+
+    <div class="sec-title">Specialized Groups</div>
+    <div class="card">
+      <div class="chips">
+        ${GROUPS.map(g=>`<span class="chip${D.activeGroups.includes(g)?' on':''}" onclick="toggleGroup('${g}')">${g}</span>`).join('')}
+      </div>
+    </div>
+
+    <div class="sec-title row sb" style="padding-right:16px;">
+      <span>Goals</span>
+      <button class="btn btn-ghost btn-xs" onclick="openGoalModal()">＋ Goal</button>
+    </div>
+    ${activeGoals.length===0?`<div style="padding:0 20px 12px;font-size:13px;color:var(--muted2);">No active goals. Set one to track your progress!</div>`:''}
+    ${activeGoals.map(g=>`
+      <div class="card">
+        <div class="row sb mb-8">
+          <span class="fw5 f14">${esc(g.title)}</span>
+          <span class="tag tag-rose">${esc(g.style)}</span>
+        </div>
+        ${g.description?`<div class="f13 muted mb-8 lh">${esc(g.description)}</div>`:''}
+        <div class="row" style="gap:10px;margin-bottom:8px;">
+          <div class="prog-track flex-1"><div class="prog-fill" style="width:${g.progress||0}%"></div></div>
+          <span class="f12 muted" style="width:34px;text-align:right;">${g.progress||0}%</span>
+        </div>
+        <input type="range" min="0" max="100" value="${g.progress||0}" oninput="updateGoalProgress('${g.id}',this.value)" style="margin-bottom:8px;"/>
+        <div class="row sb">
+          <span class="f12 muted">Target: ${g.targetDate?fmtDate(g.targetDate):'—'}</span>
+          <button class="btn btn-ghost btn-xs" onclick="completeGoal('${g.id}')">Mark Complete ✓</button>
+        </div>
+      </div>
+    `).join('')}
+    ${completedGoals.length?`
+      <div class="sec-title">Completed 🎉</div>
+      ${completedGoals.map(g=>`
+        <div class="card" style="opacity:.6;">
+          <div class="row sb">
+            <span style="text-decoration:line-through;color:var(--muted2);font-size:14px;">${esc(g.title)}</span>
+            <span style="color:var(--green);">✓</span>
+          </div>
+        </div>
+      `).join('')}`:''}
+
+    <div class="sec-title row sb" style="padding-right:16px;">
+      <span>Injury Log</span>
+      <button class="btn btn-ghost btn-xs" onclick="openInjuryModal()">＋ Log</button>
+    </div>
+    ${D.injuryLog.length===0?`<div style="padding:0 20px 12px;font-size:13px;color:var(--muted2);">No injuries logged — keep it that way! 🤞</div>`:''}
+    ${[...D.injuryLog].reverse().map(inj=>`
+      <div class="card">
+        <div class="row sb">
+          <span class="fw5 f14">${esc(inj.area)}</span>
+          <span class="tag tag-muted">${fmtDateShort(inj.date)}</span>
+        </div>
+        <div class="f13 muted mt-4 lh">${esc(inj.description)}</div>
+        <div class="mt-8"><span class="tag ${inj.status==='Healed'?'tag-green':'tag-rose'}">${esc(inj.status)}</span></div>
+      </div>
+    `).join('')}
+
+    <div class="sec-title">All Badges</div>
+    <div class="card" style="display:flex;flex-wrap:wrap;gap:16px;">
+      ${BADGE_DEFS.map(b=>{
+        const earned=D.badges.includes(b.id);
+        return `
+        <div style="text-align:center;width:64px;opacity:${earned?1:.25};">
+          <div style="font-size:28px;">${b.icon}</div>
+          <div class="f11 mt-4" style="color:${earned?'var(--gold2)':'var(--muted)'};">${b.label}</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px;line-height:1.3;">${b.desc}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="height:24px;"></div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════════════════════════
+function showModal(html, onClose){
+  const overlay=document.createElement('div');
+  overlay.className='modal-bg';
+  overlay.innerHTML=`<div class="modal"><div class="modal-handle"></div>${html}</div>`;
+  overlay.addEventListener('click',e=>{if(e.target===overlay)closeTopModal();});
+  document.body.appendChild(overlay);
+  modalStack.push(()=>{overlay.remove();if(onClose)onClose();});
+}
+
+function closeTopModal(){
+  if(modalStack.length){modalStack.pop()();}
+}
+
+// ── Log Session ──
+function openLogModal(){
+  const activeSeason=D.seasons.find(s=>s.active)||null;
+  const seasons=D.seasons.filter(s=>!s.archived);
+  showModal(`
+    <h2>Log a Session</h2>
+    <div class="form-group"><label class="form-label">Title (optional)</label><input class="form-input" id="ml-title" placeholder="e.g. Ballet class, Open practice…"/></div>
+    <div class="form-grid2">
+      <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="ml-date" value="${today()}"/></div>
+      <div class="form-group"><label class="form-label">Duration (min)</label><input type="number" class="form-input" id="ml-dur" value="60"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Style</label>
+      <select class="form-select" id="ml-style">${D.activeStyles.map(s=>`<option>${s}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label class="form-label">Season</label>
+      <select class="form-select" id="ml-season" onchange="updateClassDropdown()">
+        <option value="">No season / Open practice</option>
+        ${seasons.map(s=>`<option value="${s.id}" ${activeSeason&&s.id===activeSeason.id?'selected':''}>${esc(s.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="ml-class-wrap" class="form-group" style="display:${activeSeason&&(activeSeason.classes||[]).length?'block':'none'}">
+      <label class="form-label">Class</label>
+      <select class="form-select" id="ml-class">
+        <option value="">Open practice</option>
+        ${(activeSeason?.classes||[]).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Mood</label>
+      <div class="chips">${MOODS.map((m,i)=>`<span class="chip${i===1?' on':''}" onclick="selectMood(this,'${esc(m)}')">${m}</span>`).join('')}</div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="ml-notes" placeholder="What did you work on? Any breakthroughs?"></textarea>
+    </div>
+    <div class="form-group"><label class="form-label">Media Link (optional)</label>
+      <input class="form-input" id="ml-link" placeholder="YouTube, Google Drive link…"/>
+    </div>
+    <div class="flex gap-10">
+      <button class="btn btn-ghost flex-1" onclick="closeTopModal()">Cancel</button>
+      <button class="btn btn-rose" style="flex:2;" onclick="submitLog()">Save Entry ✓</button>
+    </div>
+  `);
+}
+
+function updateClassDropdown(){
+  const sid=document.getElementById('ml-season')?.value;
+  const wrap=document.getElementById('ml-class-wrap');
+  const sel=document.getElementById('ml-class');
+  if(!sid||!wrap||!sel){return;}
+  const s=D.seasons.find(x=>x.id===sid);
+  const classes=s?.classes||[];
+  if(classes.length===0){wrap.style.display='none';}
+  else{
+    wrap.style.display='block';
+    sel.innerHTML=`<option value="">Open practice</option>${classes.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}`;
+  }
+}
+
+let selectedMood=MOODS[1];
+function selectMood(el,m){
+  selectedMood=m;
+  el.closest('.chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function submitLog(){
+  const title=document.getElementById('ml-title')?.value.trim()||'';
+  const date=document.getElementById('ml-date')?.value||today();
+  const duration=parseInt(document.getElementById('ml-dur')?.value)||60;
+  const style=document.getElementById('ml-style')?.value||D.activeStyles[0];
+  const seasonId=document.getElementById('ml-season')?.value||'';
+  const classId=document.getElementById('ml-class')?.value||'';
+  const notes=document.getElementById('ml-notes')?.value.trim()||'';
+  const mediaLink=document.getElementById('ml-link')?.value.trim()||'';
+  const entry={id:uid(),title,date,duration,style,seasonId,classId,mood:selectedMood,notes,mediaLink};
+  D.entries.push(entry);
+  checkBadges();
+  save();
+  closeTopModal();
+  renderContent();
+}
+
+// ── Entry Detail ──
+function openEntryDetail(id){
+  const e=D.entries.find(x=>x.id===id);
+  if(!e)return;
+  const season=D.seasons.find(s=>s.id===e.seasonId);
+  const cls=season?.classes?.find(c=>c.id===e.classId);
+  const archived=season?.archived;
+  showModal(`
+    <div class="row sb" style="margin-bottom:16px;align-items:flex-start;">
+      <div>
+        <div class="f12 muted">${fmtDate(e.date)}</div>
+        <h2 style="margin-bottom:0;">${esc(e.title||e.style)}</h2>
+      </div>
+      <div style="font-size:28px;">${e.mood?.split(' ')[0]||''}</div>
+    </div>
+    <div class="flex gap-8" style="flex-wrap:wrap;margin-bottom:16px;">
+      <span class="tag tag-rose">${esc(e.style)}</span>
+      <span class="tag tag-muted">${e.duration} min</span>
+      ${e.mood?`<span class="tag tag-muted">${esc(e.mood)}</span>`:''}
+      ${season?`<span class="tag tag-muted">${esc(season.name)}</span>`:''}
+      ${cls?`<span class="tag tag-gold">${esc(cls.name)}</span>`:''}
+      ${archived?`<span class="tag tag-archived">🔒 Archived Season</span>`:''}
+    </div>
+    ${e.notes?`<p class="f14 lh" style="color:var(--cream);margin-bottom:16px;">${esc(e.notes)}</p>`:''}
+    ${e.mediaLink?`<a href="${esc(e.mediaLink)}" target="_blank" rel="noreferrer" style="color:var(--rose2);font-size:13px;display:block;margin-bottom:16px;">🎬 View Media →</a>`:''}
+    ${!archived?`
+      <div class="divider"></div>
+      <button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">Delete Entry</button>
+    `:''}
+  `);
+}
+
+function deleteEntry(id){
+  D.entries=D.entries.filter(e=>e.id!==id);
+  save();
+  closeTopModal();
+  renderContent();
+}
+
+// ── New Season ──
+function openNewSeasonModal(){
+  showModal(`
+    <h2>New Season</h2>
+    <div class="form-group"><label class="form-label">Season Name</label>
+      <input class="form-input" id="ns-name" placeholder="e.g. Fall 2026, Competition Spring…"/>
+    </div>
+    <div class="form-grid2">
+      <div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" id="ns-start" value="${today()}"/></div>
+      <div class="form-group"><label class="form-label">End Date</label><input type="date" class="form-input" id="ns-end"/></div>
+    </div>
+    <div class="flex gap-10">
+      <button class="btn btn-ghost flex-1" onclick="closeTopModal()">Cancel</button>
+      <button class="btn btn-rose" style="flex:2;" onclick="submitNewSeason()">Create Season</button>
+    </div>
+  `);
+}
+
+function submitNewSeason(){
+  const name=document.getElementById('ns-name')?.value.trim();
+  if(!name)return;
+  const startDate=document.getElementById('ns-start')?.value||'';
+  const endDate=document.getElementById('ns-end')?.value||'';
+  const isFirst=D.seasons.filter(s=>!s.archived).length===0;
+  D.seasons.push({id:uid(),name,startDate,endDate,classes:[],active:isFirst,archived:false});
+  save();
+  closeTopModal();
+  renderContent();
+}
+
+// ── New Class ──
+let newClassSeasonId=null;
+let selectedDays=[];
+function openNewClassModal(seasonId){
+  newClassSeasonId=seasonId;
+  selectedDays=[];
+  showModal(`
+    <h2>Add Class</h2>
+    <div class="form-group"><label class="form-label">Class Name</label>
+      <input class="form-input" id="nc-name" placeholder="e.g. Ballet Technique Level 3"/>
+    </div>
+    <div class="form-grid2">
+      <div class="form-group"><label class="form-label">Style</label>
+        <select class="form-select" id="nc-style">${D.activeStyles.map(s=>`<option>${s}</option>`).join('')}</select>
+      </div>
+      <div class="form-group"><label class="form-label">Type</label>
+        <select class="form-select" id="nc-type">${CLASS_TYPES.map(t=>`<option>${t}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Teacher</label>
+      <input class="form-input" id="nc-teacher" placeholder="Teacher name"/>
+    </div>
+    <div class="form-grid2">
+      <div class="form-group"><label class="form-label">Time</label>
+        <input class="form-input" id="nc-time" placeholder="e.g. 4:00 PM"/>
+      </div>
+      <div class="form-group"><label class="form-label">Location</label>
+        <input class="form-input" id="nc-loc" placeholder="Studio room…"/>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Days</label>
+      <div class="chips" id="days-chips">
+        ${DAYS.map(d=>`<span class="chip" onclick="toggleDay(this,'${d}')">${d.slice(0,3)}</span>`).join('')}
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Specialized Group (optional)</label>
+      <select class="form-select" id="nc-group">
+        <option value="">None</option>
+        ${GROUPS.map(g=>`<option>${g}</option>`).join('')}
+      </select>
+    </div>
+    <div class="flex gap-10">
+      <button class="btn btn-ghost flex-1" onclick="closeTopModal()">Cancel</button>
+      <button class="btn btn-rose" style="flex:2;" onclick="submitNewClass()">Add Class</button>
+    </div>
+  `);
+}
+
+function toggleDay(el,day){
+  if(selectedDays.includes(day)){selectedDays=selectedDays.filter(d=>d!==day);el.classList.remove('on');}
+  else{selectedDays.push(day);el.classList.add('on');}
+}
+
+function submitNewClass(){
+  const name=document.getElementById('nc-name')?.value.trim();
+  if(!name)return;
+  const cls={
+    id:uid(),name,
+    style:document.getElementById('nc-style')?.value||'Ballet',
+    type:document.getElementById('nc-type')?.value||'Regular',
+    teacher:document.getElementById('nc-teacher')?.value.trim()||'',
+    time:document.getElementById('nc-time')?.value.trim()||'',
+    location:document.getElementById('nc-loc')?.value.trim()||'',
+    days:[...selectedDays],
+    group:document.getElementById('nc-group')?.value||'',
+  };
+  D.seasons=D.seasons.map(s=>s.id===newClassSeasonId?{...s,classes:[...(s.classes||[]),cls]}:s);
+  save();
+  closeTopModal();
+  renderContent();
+}
+
+// ── Shoe Modal ──
+function openShoeModal(){
+  showModal(`
+    <h2>Shoe Fitting</h2>
+    <div class="form-group"><label class="form-label">Brand</label>
+      <input class="form-input" id="sh-brand" placeholder="Bloch, Capezio, Gaynor Minden…"/>
+    </div>
+    <div class="form-grid3">
+      <div class="form-group"><label class="form-label">Size</label><input class="form-input" id="sh-size" placeholder="4.5"/></div>
+      <div class="form-group"><label class="form-label">Vamp</label><input class="form-input" id="sh-vamp" placeholder="Low/Med/High"/></div>
+      <div class="form-group"><label class="form-label">Shank</label><input class="form-input" id="sh-shank" placeholder="Soft/Med/Hard"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="sh-notes" placeholder="How they feel, sewing notes, box width…"></textarea>
+    </div>
+    <div class="flex gap-10">
+      <button class="btn btn-ghost flex-1" onclick="closeTopModal()">Cancel</button>
+      <button class="btn btn-rose" style="flex:2;" onclick="submitShoe()">Save Fitting</button>
+    </div>
+  `);
+}
+
+function submitShoe(){
+  const brand=document.getElementById('sh-brand')?.value.trim();
+  if(!brand)return;
+  const shoe={id:uid(),date:today(),brand,size:document.getElementById('sh-size')?.value.trim()||'',vamp:document.getElementById('sh-vamp')?.value.trim()||'',shank:document.getElementById('sh-shank')?.value.trim()||'',notes:document.getElementById('sh-notes')?.value.trim()||''};
+  D.pointeLog.shoes=[...(D.pointeLog.shoes||[]),shoe];
+  save();
+  closeTopModal();
+  renderContent();
+}
+
+// ── Competition Modal ──
+function openCompModal(){
+  showModal(`
+    <h2>Log Competition</h2>
+    <div class="form-group"><label class="form-label">Event Name</label>
+      <input class="form-input" id="cp-event" placeholder="e.g. Regional Dance Championships"/>
+    </div>
+    <div class="form-grid2">
+      <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="cp-date" value="${today()}"/></div>
+      <div class="form-group"><label class="form-label">Venue</label><input class="form-input" id="cp-venue" placeholder="City or venue"/></div>
+    </div>
+    <div class="form-grid2">
+      <div class="form-group"><label class="form-label">Style</label>
+        <select class="form-select" id="cp-style">${D.activeStyles.map(s=>`<option>${s}</option>`).join('')}</select>
+      </div>
+      <div class="form-group"><label class="form-label">Piece Name</label><input class="form-input" id="cp-piece" placeholder="Routine title"/></div>
+    </div>
+    <div class="form-grid2">
+      <div class="form-group"><label class="form-label">Placement</label><input class="form-input" id="cp-place" placeholder="1st, 2nd, Gold…"/></div>
+      <div class="form-group"><label class="form-label">Score</label><input class="form-input" id="cp-score" placeholder="Score or rating"/></div>
+    </div>
+    <div class="form-grid2">
+      <div class="form-group"><label class="form-label">Costume</label><input class="form-input" id="cp-costume" placeholder="Costume description"/></div>
+      <div class="form-group"><label class="form-label">Music</label><input class="form-input" id="cp-music" placeholder="Song / artist"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Judge Feedback</label>
+      <textarea class="form-textarea" id="cp-feedback" placeholder="Notes from judges or director…"></textarea>
+    </div>
+    <div class="flex gap-10">
+      <button class="btn btn-ghost flex-1" onclick="closeTopModal()">Cancel</button>
+      <button class="btn btn-gold" style="flex:2;" onclick="submitComp()">Log Competition 🏆</button>
+    </div>
+  `);
+}
+
+function submitComp(){
+  const event=document.getElementById('cp-event')?.value.trim();
+  if(!event)return;
+  const comp={id:uid(),event,date:document.getElementById('cp-date')?.value||today(),venue:document.getElementById('cp-venue')?.value.trim()||'',style:document.getElementById('cp-style')?.value||'Ballet',piece:document.getElementById('cp-piece')?.value.trim()||'',placement:document.getElementById('cp-place')?.value.trim()||'',score:document.getElementById('cp-score')?.value.trim()||'',costume:document.getElementById('cp-costume')?.value.trim()||'',music:document.getElementById('cp-music')?.value.trim()||'',feedback:document.getElementById('cp-feedback')?.value.trim()||''};
+  D.competitions.push(comp);
+  checkBadges();
+  save();
+  closeTopModal();
+  renderContent();
+}
+
+// ── Goal Modal ──
+function openGoalModal(){
+  showModal(`
+    <h2>New Goal</h2>
+    <div class="form-group"><label class="form-label">Goal</label>
+      <input class="form-input" id="gl-title" placeholder="e.g. Land a clean double pirouette"/>
+    </div>
+    <div class="form-group"><label class="form-label">Style</label>
+      <select class="form-select" id="gl-style">${D.activeStyles.map(s=>`<option>${s}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label class="form-label">Description (optional)</label>
+      <textarea class="form-textarea" id="gl-desc" placeholder="More detail…"></textarea>
+    </div>
+    <div class="form-group"><label class="form-label">Target Date</label>
+      <input type="date" class="form-input" id="gl-date"/>
+    </div>
+    <div class="flex gap-10">
+      <button class="btn btn-ghost flex-1" onclick="closeTopModal()">Cancel</button>
+      <button class="btn btn-rose" style="flex:2;" onclick="submitGoal()">Set Goal ⭐</button>
+    </div>
+  `);
+}
+
+function submitGoal(){
+  const title=document.getElementById('gl-title')?.value.trim();
+  if(!title)return;
+  D.goals.push({id:uid(),title,style:document.getElementById('gl-style')?.value||'Ballet',description:document.getElementById('gl-desc')?.value.trim()||'',targetDate:document.getElementById('gl-date')?.value||'',progress:0,completed:false});
+  save();
+  closeTopModal();
+  renderContent();
+}
+
+// ── Injury Modal ──
+function openInjuryModal(){
+  showModal(`
+    <h2>Log Injury / Soreness</h2>
+    <div class="form-group"><label class="form-label">Body Area</label>
+      <select class="form-select" id="inj-area">${BODY_AREAS.map(a=>`<option>${a}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label class="form-label">Description</label>
+      <textarea class="form-textarea" id="inj-desc" placeholder="What happened? Pain level, circumstances…"></textarea>
+    </div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <div class="chips" id="inj-chips">
+        ${INJ_STATUS.map((s,i)=>`<span class="chip${i===0?' on':''}" onclick="selectInjStatus(this,'${s}')">${s}</span>`).join('')}
+      </div>
+    </div>
+    <div class="flex gap-10">
+      <button class="btn btn-ghost flex-1" onclick="closeTopModal()">Cancel</button>
+      <button class="btn btn-rose" style="flex:2;" onclick="submitInjury()">Save</button>
+    </div>
+  `);
+}
+
+let selectedInjStatus=INJ_STATUS[0];
+function selectInjStatus(el,s){
+  selectedInjStatus=s;
+  el.closest('.chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function submitInjury(){
+  const desc=document.getElementById('inj-desc')?.value.trim();
+  if(!desc)return;
+  D.injuryLog.push({id:uid(),date:today(),area:document.getElementById('inj-area')?.value||'Other',description:desc,status:selectedInjStatus});
+  save();
+  closeTopModal();
+  renderContent();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ACTIONS
+// ═══════════════════════════════════════════════════════════════════
+function setSkill(style,skillId,level){
+  D.skills[style]=D.skills[style].map(s=>s.id===skillId?{...s,level}:s);
+  save();
+  renderContent();
+}
+
+function togglePointe(field,item){
+  D.pointeLog[field]={...D.pointeLog[field],[item]:!D.pointeLog[field][item]};
+  checkBadges();
+  save();
+  renderContent();
+}
+
+function toggleSeasonActive(id){
+  D.seasons=D.seasons.map(s=>s.id===id?{...s,active:!s.active}:s);
+  save();
+  renderContent();
+}
+
+function toggleArchive(id){
+  D.seasons=D.seasons.map(s=>s.id===id?{...s,archived:!s.archived,active:false}:s);
+  save();
+  renderContent();
+}
+
+function deleteSeason(id){
+  if(!confirm('Delete this season? Journal entries will remain but lose the season link.'))return;
+  D.seasons=D.seasons.filter(s=>s.id!==id);
+  expandedSeason=null;
+  save();
+  renderContent();
+}
+
+function deleteClass(seasonId,classId){
+  D.seasons=D.seasons.map(s=>s.id===seasonId?{...s,classes:(s.classes||[]).filter(c=>c.id!==classId)}:s);
+  save();
+  renderContent();
+}
+
+function toggleStyle(s){
+  D.activeStyles=D.activeStyles.includes(s)?D.activeStyles.filter(x=>x!==s):[...D.activeStyles,s];
+  save();
+  renderContent();
+}
+
+function toggleGroup(g){
+  D.activeGroups=D.activeGroups.includes(g)?D.activeGroups.filter(x=>x!==g):[...D.activeGroups,g];
+  save();
+  renderContent();
+}
+
+function saveProfile(){
+  D.userName=document.getElementById('p-name')?.value.trim()||'';
+  D.studioName=document.getElementById('p-studio')?.value.trim()||'';
+  D.userToken=document.getElementById('p-token')?.value.trim()||D.userToken;
+  save();
+  const btn=document.querySelector('[onclick="saveProfile()"]');
+  if(btn){btn.textContent='✓ Saved!';setTimeout(()=>{btn.textContent='Save Profile';},2000);}
+}
+
+function updateGoalProgress(id,val){
+  D.goals=D.goals.map(g=>g.id===id?{...g,progress:parseInt(val)}:g);
+  save();
+  // Update progress bar inline without full re-render
+  const fills=document.querySelectorAll('.prog-fill');
+  // lightweight: just save, re-render would reset range position
+}
+
+function completeGoal(id){
+  D.goals=D.goals.map(g=>g.id===id?{...g,completed:true,progress:100}:g);
+  checkBadges();
+  save();
+  renderContent();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MISC LISTENERS
+// ═══════════════════════════════════════════════════════════════════
+function attachListeners(){
+  // keyboard escape closes modals
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&modalStack.length) closeTopModal();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',()=>{
+  const stored=KV.get('appdata');
+  D=stored||initData();
+  if(!stored)save();
+  checkBadges();
+  setTimeout(()=>{
+    document.getElementById('loading').style.opacity='0';
+    setTimeout(()=>{
+      document.getElementById('loading').style.display='none';
+      document.getElementById('app').style.display='flex';
+      renderNav();
+      renderContent();
+    },400);
+  },800);
+});
+</script>
+</body>
+</html>
