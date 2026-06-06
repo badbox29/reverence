@@ -421,19 +421,6 @@ function renderSidebar() {
       </div>`).join('')
     : '<div class="widget-empty">No upcoming events.</div>';
 
-  // Seasons
-  document.getElementById('sidebar-seasons').innerHTML = D.seasons.length
-    ? D.seasons.slice(0,4).map(s=>`
-      <div class="season-item">
-        <div class="row gap-8">
-          <span class="season-item-name">${esc(s.name)}</span>
-          ${s.active?'<span class="tag tag-active" style="font-size:9px;">Active</span>':''}
-          ${s.archived?'<span class="tag tag-archived" style="font-size:9px;">🔒</span>':''}
-        </div>
-        <div class="season-item-meta">${s.startDate?fmtDateShort(s.startDate):''} – ${s.endDate?fmtDateShort(s.endDate):''} · ${(s.classes||[]).length} classes</div>
-      </div>`).join('')
-    : '<div class="widget-empty">No seasons created yet.</div>';
-
   // Badges
   document.getElementById('sidebar-badges').innerHTML = BADGE_DEFS.map(b=>`
     <div class="badge-item${D.badges.includes(b.id)?'':' locked'}" title="${esc(b.desc)}">
@@ -884,7 +871,6 @@ function deleteClass(sid,cid){ D.seasons=D.seasons.map(s=>s.id===sid?{...s,class
 document.getElementById('sched-tab-active').addEventListener('click',   ()=>{ schedView='active';   renderScheduleModal(); });
 document.getElementById('sched-tab-archived').addEventListener('click',  ()=>{ schedView='archived'; renderScheduleModal(); });
 document.getElementById('btn-schedule').addEventListener('click',        openScheduleModal);
-document.getElementById('btn-open-schedule').addEventListener('click',   openScheduleModal);
 document.getElementById('btn-open-schedule-sidebar').addEventListener('click', openScheduleModal);
 
 document.getElementById('btn-new-season').addEventListener('click',()=>{
