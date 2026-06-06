@@ -58,11 +58,71 @@ const POINTE_COND = [
   'Arch strengthening', 'Balance work','Core stability',
 ];
 
-// ── Storage ───────────────────────────────────────────────────────
+// ── Storage (localStorage) ───────────────────────────────────────
 const KV = {
   get(k)   { try { const v=localStorage.getItem('rev_'+k); return v?JSON.parse(v):null; } catch { return null; } },
   set(k,v) { try { localStorage.setItem('rev_'+k,JSON.stringify(v)); } catch {} },
 };
+
+// ── Remote sync (Cloudflare Worker) ──────────────────────────────
+let syncStatus = 'idle'; // idle | syncing | ok | error
+
+function workerBase() {
+  const url = (D?.workerUrl||'').replace(/\/+$/, '');
+  return url || null;
+}
+
+function syncIndicatorHTML(status) {
+  const map = {
+    idle:    { icon:'☁️',  text:'Not synced',  cls:'sync-idle'    },
+    syncing: { icon:'⟳',   text:'Syncing…',    cls:'sync-syncing' },
+    ok:      { icon:'✓',   text:'Synced',      cls:'sync-ok'      },
+    error:   { icon:'✕',   text:'Sync failed', cls:'sync-error'   },
+  };
+  const s = map[status] || map.idle;
+  return `<span class="sync-indicator ${s.cls}" title="${s.text}">${s.icon} ${s.text}</span>`;
+}
+
+function updateSyncIndicator() {
+  const el = document.getElementById('sync-indicator');
+  if(el) el.outerHTML = `<span id="sync-indicator">${syncIndicatorHTML(syncStatus)}</span>`;
+  const el2 = document.getElementById('sync-indicator');
+  if(el2) el2.outerHTML = syncIndicatorHTML(syncStatus).replace('<span class=','<span id="sync-indicator" class=');
+}
+
+async function pushToWorker() {
+  const base = workerBase();
+  if(!base || !D?.userToken) return;
+  syncStatus = 'syncing'; updateSyncIndicator();
+  try {
+    const res = await fetch(`${base}/kv/${encodeURIComponent(D.userToken)}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(D),
+    });
+    syncStatus = res.ok ? 'ok' : 'error';
+  } catch { syncStatus = 'error'; }
+  updateSyncIndicator();
+}
+
+async function pullFromWorker() {
+  const base = workerBase();
+  if(!base || !D?.userToken) return null;
+  syncStatus = 'syncing'; updateSyncIndicator();
+  try {
+    const res  = await fetch(`${base}/kv/${encodeURIComponent(D.userToken)}`);
+    if(!res.ok){ syncStatus = res.status===404 ? 'idle' : 'error'; updateSyncIndicator(); return null; }
+    const data = await res.json();
+    syncStatus = 'ok'; updateSyncIndicator();
+    return data;
+  } catch { syncStatus = 'error'; updateSyncIndicator(); return null; }
+}
+
+// save locally and push to worker
+function save() {
+  KV.set('appdata', D);
+  if(workerBase()) pushToWorker();
+}
 
 // ── Utilities ─────────────────────────────────────────────────────
 const uid          = () => Math.random().toString(36).slice(2,10);
@@ -103,6 +163,7 @@ function initData() {
     badges:       [],
     injuryLog:    [],
     theme:        'dark',
+    workerUrl:    '',
   };
 }
 
@@ -463,7 +524,6 @@ const EVENT_FIELDS = {
     { id:'ev-route',     label:'Route / Distance',    type:'text',   placeholder:'e.g. 1.2 miles downtown loop' },
   ],
   Holiday: [
-    { id:'ev-perfname',  label:'Performance Name',    type:'text',   placeholder:'e.g. The Nutcracker, Holiday Spectacular' },
     { id:'ev-role',      label:'Role / Character',    type:'text',   placeholder:'e.g. Sugar Plum Fairy, Snowflake' },
     { id:'ev-pieces',    label:'Piece(s)',             type:'text',   placeholder:'e.g. Waltz of the Snowflakes' },
     { id:'ev-costume',   label:'Costume',             type:'text',   placeholder:'Costume description' },
@@ -822,9 +882,10 @@ document.getElementById('btn-pointe').addEventListener('click', openPointeModal)
 
 // ── Settings ──────────────────────────────────────────────────────
 function openSettingsModal() {
-  document.getElementById('p-name').value   = D.userName||'';
-  document.getElementById('p-studio').value = D.studioName||'';
-  document.getElementById('p-token').value  = D.userToken||'';
+  document.getElementById('p-name').value      = D.userName||'';
+  document.getElementById('p-studio').value    = D.studioName||'';
+  document.getElementById('p-token').value     = D.userToken||'';
+  document.getElementById('p-worker-url').value= D.workerUrl||'';
   document.getElementById('setting-pointe').checked = !!D.showPointe;
   document.getElementById('settings-styles-chips').innerHTML=
     STYLES.map(s=>`<span class="chip${D.activeStyles.includes(s)?' on':''}" onclick="this.classList.toggle('on')" data-style="${s}">${s}</span>`).join('');
@@ -850,6 +911,7 @@ document.getElementById('btn-save-settings').addEventListener('click',()=>{
   D.userName    = val('p-name');
   D.studioName  = val('p-studio');
   D.userToken   = val('p-token')||D.userToken;
+  D.workerUrl   = val('p-worker-url');
   D.showPointe  = document.getElementById('setting-pointe').checked;
   D.activeStyles=[...document.querySelectorAll('#settings-styles-chips .chip.on')].map(c=>c.dataset.style);
   if(!D.activeStyles.length) D.activeStyles=[...STYLES];
@@ -858,6 +920,12 @@ document.getElementById('btn-save-settings').addEventListener('click',()=>{
 });
 
 document.getElementById('btn-settings').addEventListener('click', openSettingsModal);
+document.getElementById('btn-manual-sync').addEventListener('click', async ()=>{
+  if(!workerBase()){ toast('No worker URL set in Settings.'); return; }
+  toast('Syncing…');
+  await pushToWorker();
+  toast(syncStatus==='ok' ? 'Synced to worker ✓' : 'Sync failed — check worker URL.');
+});
 document.getElementById('btn-log-injury').addEventListener('click',()=>openModal('modal-injury'));
 
 document.getElementById('btn-submit-injury').addEventListener('click',()=>{
@@ -882,6 +950,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(!D.pointeLog)                      D.pointeLog={readiness:{},shoes:[],conditioning:{}};
     if(!Array.isArray(D.pointeLog.shoes)) D.pointeLog.shoes=[];
     if(typeof D.showPointe==='undefined') D.showPointe=false;
+    if(typeof D.workerUrl==='undefined')  D.workerUrl='';
     save();
   } else {
     D=defaults;
@@ -893,6 +962,34 @@ window.addEventListener('DOMContentLoaded',()=>{
   renderSpotlight();
   renderSidebar();
   renderFeed();
+  // After local render, try to pull fresher data from worker
+  if(workerBase()) {
+    pullFromWorker().then(remote => {
+      if(!remote) return;
+      // Only adopt remote data if it has more entries (simple conflict resolution)
+      const localEntries = D.entries.length;
+      const remoteEntries = (remote.entries||[]).length;
+      if(remoteEntries >= localEntries) {
+        const defaults = initData();
+        D = Object.assign({}, defaults, remote);
+        if(!Array.isArray(D.events))    D.events=[];
+        if(!Array.isArray(D.entries))   D.entries=[];
+        if(!Array.isArray(D.seasons))   D.seasons=[];
+        if(!Array.isArray(D.goals))     D.goals=[];
+        if(!Array.isArray(D.badges))    D.badges=[];
+        if(!Array.isArray(D.injuryLog)) D.injuryLog=[];
+        if(!D.pointeLog) D.pointeLog={readiness:{},shoes:[],conditioning:{}};
+        if(!Array.isArray(D.pointeLog.shoes)) D.pointeLog.shoes=[];
+        KV.set('appdata', D);
+        checkBadges();
+        applyTheme();
+        updatePointeButton();
+        renderSpotlight();
+        renderSidebar();
+        renderFeed();
+      }
+    });
+  }
 });
 
 // ── Global onclick handlers (called from rendered HTML strings) ───
