@@ -217,7 +217,7 @@ body.light .btn-icon:hover { background: rgba(0,0,0,.06); color: #1c1810; }
 }
 
 .spotlight::before {
-  content:        'Reverence';
+  content:        'Révérence';
   position:       absolute; right: -8px; top: 8px;
   font-family:    var(--font-serif); font-style: italic;
   font-size:      90px; font-weight: 300;
