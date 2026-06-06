@@ -626,9 +626,12 @@
           <input class="input" id="p-worker-url" placeholder="https://reverence.yourname.workers.dev"/>
           <div class="form-hint">Deploy <code style="font-family:monospace;font-size:.8em;color:var(--gold2);">worker.js</code> to Cloudflare Workers and paste the URL here. Leave blank to use local storage only.</div>
         </div>
-        <div class="row sb mt-8" style="align-items:center;">
+        <div class="row sb mt-8" style="align-items:center;flex-wrap:wrap;gap:.5rem;">
           <span id="sync-indicator" class="sync-indicator sync-idle">☁️ Not synced</span>
-          <button class="btn btn-outline btn-sm" id="btn-manual-sync">Sync Now</button>
+          <div class="row gap-8">
+            <button class="btn btn-ghost btn-sm" id="btn-switch-account">Switch Account</button>
+            <button class="btn btn-outline btn-sm" id="btn-manual-sync">Sync Now</button>
+          </div>
         </div>
       </div>
       <div class="settings-section">
@@ -708,6 +711,46 @@
       <div class="form-actions">
         <button class="btn btn-ghost" data-close="modal-injury">Cancel</button>
         <button class="btn btn-primary" id="btn-submit-injury">Save Entry</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Account / Token Setup (shown on new device)             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-account-setup" role="dialog" aria-modal="true" aria-label="Account Setup">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 class="modal-title" id="account-setup-title">Welcome to Reverence</h2>
+    </div>
+    <div class="modal-body" id="account-setup-body">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Switch Account                                          -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-switch-account" role="dialog" aria-modal="true" aria-label="Switch Account">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 class="modal-title">Switch Account</h2>
+      <button class="modal-close" data-close="modal-switch-account">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="f13 lh muted" style="margin-bottom:1.1rem;">
+        Enter a token from another device or account. If found on the worker, that account's data will load here. Your current local data will be replaced.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Token</label>
+        <input class="input input-mono" id="switch-token-input" placeholder="Paste token here…"/>
+      </div>
+      <div id="switch-account-status" style="min-height:1.4rem;font-size:.82rem;margin-bottom:.75rem;"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" data-close="modal-switch-account">Cancel</button>
+        <button class="btn btn-primary" id="btn-submit-switch-account">Load Account</button>
       </div>
     </div>
   </div>
