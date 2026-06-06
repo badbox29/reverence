@@ -869,8 +869,24 @@ document.getElementById('btn-submit-injury').addEventListener('click',()=>{
 // ── Boot ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
   const stored=KV.get('appdata');
-  D=stored||initData();
-  if(!stored) save();
+  const defaults=initData();
+  if(stored){
+    // Merge new fields into legacy saved data so nothing breaks
+    D=Object.assign({},defaults,stored);
+    if(!Array.isArray(D.events))          D.events=[];
+    if(!Array.isArray(D.entries))         D.entries=[];
+    if(!Array.isArray(D.seasons))         D.seasons=[];
+    if(!Array.isArray(D.goals))           D.goals=[];
+    if(!Array.isArray(D.badges))          D.badges=[];
+    if(!Array.isArray(D.injuryLog))       D.injuryLog=[];
+    if(!D.pointeLog)                      D.pointeLog={readiness:{},shoes:[],conditioning:{}};
+    if(!Array.isArray(D.pointeLog.shoes)) D.pointeLog.shoes=[];
+    if(typeof D.showPointe==='undefined') D.showPointe=false;
+    save();
+  } else {
+    D=defaults;
+    save();
+  }
   checkBadges();
   applyTheme();
   updatePointeButton();
