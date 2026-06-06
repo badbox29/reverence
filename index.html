@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reverence — Dance Trainer &amp; Journal</title>
-  <meta name="description" content="A personal journal for dancers to track skills, seasons, classes, and growth."/>
+  <meta name="description" content="A personal journal for dancers to track skills, seasons, classes, events, and growth."/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet"/>
@@ -16,19 +16,17 @@
 <header class="site-header">
   <div class="header-inner">
     <div class="brand">
-      <div>
-        <div class="brand-wordmark">Reverence</div>
-        <span class="brand-sub">Dance Trainer &amp; Journal</span>
-      </div>
+      <div class="brand-wordmark">Reverence</div>
+      <span class="brand-sub">Dance Trainer &amp; Journal</span>
     </div>
     <nav class="header-actions">
       <button class="btn btn-ghost" id="btn-log-session">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         <span class="btn-label">Log Session</span>
       </button>
-      <button class="btn btn-primary" id="btn-new-goal">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-        <span class="btn-label">New Goal</span>
+      <button class="btn btn-primary" id="btn-events">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span class="btn-label">Events</span>
       </button>
       <button class="btn btn-icon" id="btn-schedule" title="Schedule &amp; Seasons">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -36,8 +34,8 @@
       <button class="btn btn-icon" id="btn-skills" title="Skills Tracker">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
       </button>
-      <button class="btn btn-icon" id="btn-groups" title="Company · Competition · Pointe">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <button class="btn btn-icon" id="btn-pointe" title="Pointe" style="display:none;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/></svg>
       </button>
       <button class="btn btn-icon" id="btn-settings" title="Settings">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -53,7 +51,7 @@
   <div class="feed-column">
 
     <!-- Spotlight -->
-    <section class="spotlight" id="spotlight-section">
+    <section class="spotlight">
       <div class="spotlight-label">✦ From the archives</div>
       <div id="spotlight-content">
         <div class="spotlight-empty">Your past sessions will appear here as a daily highlight.</div>
@@ -83,25 +81,21 @@
       </div>
     </div>
 
-    <!-- Pagination -->
     <div class="pagination" id="pagination"></div>
 
-  </div><!-- /feed-column -->
+  </div>
 
   <!-- Sidebar -->
   <aside class="sidebar">
 
-    <!-- Stats widget -->
     <section class="widget">
-      <div class="widget-header">
-        <h3 class="widget-title">At a Glance</h3>
-      </div>
+      <div class="widget-header"><h3 class="widget-title">At a Glance</h3></div>
       <div class="row gap-12 mb-8" style="align-items:flex-start;">
-        <div class="streak-ring" id="streak-ring">
+        <div class="streak-ring">
           <div class="streak-num" id="streak-num">0</div>
           <div class="streak-lbl">streak</div>
         </div>
-        <div class="sidebar-stats flex-1" id="sidebar-stats">
+        <div class="sidebar-stats flex-1">
           <div class="sidebar-stat-card">
             <div class="sidebar-stat-val" id="stat-week-hrs">0</div>
             <div class="sidebar-stat-lbl">Hrs this week</div>
@@ -115,33 +109,32 @@
       <div id="active-season-strip"></div>
     </section>
 
-    <!-- Active Goals widget -->
     <section class="widget">
       <div class="widget-header">
         <h3 class="widget-title">Active Goals</h3>
-        <button class="btn btn-tiny btn-outline" onclick="openModal('modal-goal')">+ Add</button>
+        <button class="btn btn-tiny btn-outline" onclick="openGoalModal()">+ Add</button>
       </div>
-      <div id="sidebar-goals">
-        <div class="widget-empty">No goals yet. Set one to track your progress.</div>
-      </div>
+      <div id="sidebar-goals"><div class="widget-empty">No active goals yet.</div></div>
     </section>
 
-    <!-- Seasons widget -->
+    <section class="widget">
+      <div class="widget-header">
+        <h3 class="widget-title">Upcoming Events</h3>
+        <button class="btn btn-tiny btn-outline" id="btn-sidebar-events">View All</button>
+      </div>
+      <div id="sidebar-events"><div class="widget-empty">No upcoming events.</div></div>
+    </section>
+
     <section class="widget">
       <div class="widget-header">
         <h3 class="widget-title">Seasons</h3>
         <button class="btn btn-tiny btn-outline" id="btn-open-schedule">Manage</button>
       </div>
-      <div id="sidebar-seasons">
-        <div class="widget-empty">No seasons created yet.</div>
-      </div>
+      <div id="sidebar-seasons"><div class="widget-empty">No seasons created yet.</div></div>
     </section>
 
-    <!-- Badges widget -->
     <section class="widget">
-      <div class="widget-header">
-        <h3 class="widget-title">Badges</h3>
-      </div>
+      <div class="widget-header"><h3 class="widget-title">Badges</h3></div>
       <div class="badge-grid" id="sidebar-badges"></div>
     </section>
 
@@ -152,10 +145,7 @@
   Reverence <span style="color:var(--gold);opacity:.6;margin:0 .4em;">✦</span> Dance Trainer &amp; Journal
 </footer>
 
-<!-- ── Theme Toggle ─────────────────────────────────────────────── -->
 <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark">🌙</button>
-
-<!-- ── Toast ───────────────────────────────────────────────────── -->
 <div class="toast" id="toast"></div>
 
 <!-- ══════════════════════════════════════════════════════════════ -->
@@ -200,9 +190,7 @@
         </div>
         <div class="form-group" id="ml-class-wrap">
           <label class="form-label">Class</label>
-          <select class="input" id="ml-class">
-            <option value="">Open practice</option>
-          </select>
+          <select class="input" id="ml-class"><option value="">Open practice</option></select>
         </div>
       </div>
       <div class="form-group">
@@ -225,9 +213,7 @@
       </div>
       <div class="form-actions">
         <button class="btn btn-ghost" data-close="modal-log">Cancel</button>
-        <div class="form-actions-right">
-          <button class="btn btn-primary" id="btn-submit-log">Save Entry ✓</button>
-        </div>
+        <button class="btn btn-primary" id="btn-submit-log">Save Entry ✓</button>
       </div>
     </div>
   </div>
@@ -252,7 +238,7 @@
 <!-- ══════════════════════════════════════════════════════════════ -->
 <!-- MODAL: Goal                                                    -->
 <!-- ══════════════════════════════════════════════════════════════ -->
-<div class="modal-overlay" id="modal-goal" role="dialog" aria-modal="true" aria-label="New Goal">
+<div class="modal-overlay" id="modal-goal" role="dialog" aria-modal="true" aria-label="Set a Goal">
   <div class="modal modal-sm">
     <div class="modal-header">
       <h2 class="modal-title">Set a Goal</h2>
@@ -285,6 +271,116 @@
         <button class="btn btn-primary" id="btn-submit-goal">Set Goal ⭐</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Events                                                  -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-events" role="dialog" aria-modal="true" aria-label="Events">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 class="modal-title">Events</h2>
+      <div class="modal-header-actions">
+        <button class="btn btn-gold btn-sm" id="btn-open-new-event">+ Log Event</button>
+        <button class="modal-close" data-close="modal-events">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- Filter bar -->
+      <div class="row gap-8 mb-12" style="flex-wrap:wrap;">
+        <select class="select-filter" id="events-filter-type">
+          <option value="all">All types</option>
+          <option value="Competition">Competition</option>
+          <option value="Recital">Recital</option>
+          <option value="Parade">Parade / March</option>
+          <option value="Holiday">Holiday Performance</option>
+          <option value="Workshop">Workshop / Masterclass</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div id="events-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: New / Edit Event                                        -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-new-event" role="dialog" aria-modal="true" aria-label="Log Event">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <h2 class="modal-title" id="new-event-title">Log Event</h2>
+      <button class="modal-close" data-close="modal-new-event">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Type selector — always visible -->
+      <div class="form-group">
+        <label class="form-label">Event Type</label>
+        <select class="input" id="ev-type" onchange="renderEventFields()">
+          <option value="Competition">Competition</option>
+          <option value="Recital">Recital</option>
+          <option value="Parade">Parade / March</option>
+          <option value="Holiday">Holiday Performance</option>
+          <option value="Workshop">Workshop / Masterclass</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <!-- Shared fields -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Event Name</label>
+          <input class="input" id="ev-name" placeholder="Name of the event"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input type="date" class="input" id="ev-date"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Venue / Location</label>
+          <input class="input" id="ev-venue" placeholder="Theater, city, address…"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Media Link (optional)</label>
+          <input class="input" id="ev-media" placeholder="Video, photos, programme…"/>
+        </div>
+      </div>
+
+      <!-- Dynamic type-specific fields injected here -->
+      <div id="ev-type-fields"></div>
+
+      <!-- Journal notes — always at the bottom -->
+      <div class="form-group" style="margin-top:.5rem;">
+        <label class="form-label">Journal Notes</label>
+        <textarea class="input textarea" id="ev-notes" style="min-height:110px;"
+          placeholder="How did it go? How did you feel? What do you want to remember about this event?"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-ghost" data-close="modal-new-event">Cancel</button>
+        <button class="btn btn-gold" id="btn-submit-event">Save Event</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: View Event                                              -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-view-event" role="dialog" aria-modal="true" aria-label="Event Detail">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <h2 class="modal-title" id="view-event-title">Event</h2>
+      <div class="modal-header-actions">
+        <button class="btn btn-danger btn-sm" id="btn-delete-event">Delete</button>
+        <button class="modal-close" data-close="modal-view-event">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="view-event-body"></div>
   </div>
 </div>
 
@@ -433,70 +529,15 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════ -->
-<!-- MODAL: Groups (Company / Competition / Pointe)                 -->
+<!-- MODAL: Pointe                                                  -->
 <!-- ══════════════════════════════════════════════════════════════ -->
-<div class="modal-overlay" id="modal-groups" role="dialog" aria-modal="true" aria-label="Specialized Groups">
-  <div class="modal modal-lg">
-    <div class="modal-header">
-      <h2 class="modal-title">Groups</h2>
-      <button class="modal-close" data-close="modal-groups">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="display:flex;gap:.5rem;margin-bottom:1.25rem;" id="group-tabs">
-        <button class="btn btn-sm btn-primary" data-group="Company">Company</button>
-        <button class="btn btn-sm btn-ghost" data-group="Competition">Competition</button>
-        <button class="btn btn-sm btn-ghost" data-group="Pointe">Pointe</button>
-      </div>
-      <div id="groups-content"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════════════════ -->
-<!-- MODAL: Log Competition                                         -->
-<!-- ══════════════════════════════════════════════════════════════ -->
-<div class="modal-overlay" id="modal-comp" role="dialog" aria-modal="true" aria-label="Log Competition">
+<div class="modal-overlay" id="modal-pointe" role="dialog" aria-modal="true" aria-label="Pointe">
   <div class="modal modal-md">
     <div class="modal-header">
-      <h2 class="modal-title">Log Competition</h2>
-      <button class="modal-close" data-close="modal-comp">✕</button>
+      <h2 class="modal-title">Pointe</h2>
+      <button class="modal-close" data-close="modal-pointe">✕</button>
     </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Event Name</label>
-        <input class="input" id="cp-event" placeholder="e.g. Regional Dance Championships"/>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Date</label><input type="date" class="input" id="cp-date"/></div>
-        <div class="form-group"><label class="form-label">Venue</label><input class="input" id="cp-venue" placeholder="City or venue"/></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Style</label>
-          <select class="input" id="cp-style">
-            <option>Ballet</option><option>Contemporary</option><option>Lyrical</option>
-            <option>Jazz</option><option>Tap</option><option>Hip-Hop</option>
-          </select>
-        </div>
-        <div class="form-group"><label class="form-label">Piece Name</label><input class="input" id="cp-piece" placeholder="Routine title"/></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Placement</label><input class="input" id="cp-place" placeholder="1st, 2nd, Gold…"/></div>
-        <div class="form-group"><label class="form-label">Score</label><input class="input" id="cp-score" placeholder="Score or rating"/></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Costume</label><input class="input" id="cp-costume" placeholder="Costume description"/></div>
-        <div class="form-group"><label class="form-label">Music</label><input class="input" id="cp-music" placeholder="Song / artist"/></div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Judge Feedback</label>
-        <textarea class="input textarea" id="cp-feedback" placeholder="Notes from judges or director…"></textarea>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-ghost" data-close="modal-comp">Cancel</button>
-        <button class="btn btn-gold" id="btn-submit-comp">Log Competition 🏆</button>
-      </div>
-    </div>
+    <div class="modal-body" id="pointe-body"></div>
   </div>
 </div>
 
@@ -510,13 +551,15 @@
       <button class="modal-close" data-close="modal-shoe">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-group"><label class="form-label">Brand</label><input class="input" id="sh-brand" placeholder="Bloch, Capezio, Gaynor Minden…"/></div>
+      <div class="form-group"><label class="form-label">Brand</label>
+        <input class="input" id="sh-brand" placeholder="Bloch, Capezio, Gaynor Minden…"/></div>
       <div class="form-row3">
         <div class="form-group"><label class="form-label">Size</label><input class="input" id="sh-size" placeholder="4.5"/></div>
         <div class="form-group"><label class="form-label">Vamp</label><input class="input" id="sh-vamp" placeholder="Low/Med/High"/></div>
         <div class="form-group"><label class="form-label">Shank</label><input class="input" id="sh-shank" placeholder="Soft/Med/Hard"/></div>
       </div>
-      <div class="form-group"><label class="form-label">Notes</label><textarea class="input textarea" id="sh-notes" style="min-height:70px;" placeholder="How they feel, sewing notes, box width…"></textarea></div>
+      <div class="form-group"><label class="form-label">Notes</label>
+        <textarea class="input textarea" id="sh-notes" style="min-height:70px;" placeholder="How they feel, sewing notes, box width…"></textarea></div>
       <div class="form-actions">
         <button class="btn btn-ghost" data-close="modal-shoe">Cancel</button>
         <button class="btn btn-primary" id="btn-submit-shoe">Save Fitting</button>
@@ -537,8 +580,10 @@
     <div class="modal-body">
       <div class="settings-section">
         <div class="settings-heading">Personal</div>
-        <div class="form-group"><label class="form-label">Your Name</label><input class="input" id="p-name" placeholder="Dancer's name"/></div>
-        <div class="form-group"><label class="form-label">Studio Name</label><input class="input" id="p-studio" placeholder="Studio name"/></div>
+        <div class="form-group"><label class="form-label">Your Name</label>
+          <input class="input" id="p-name" placeholder="Dancer's name"/></div>
+        <div class="form-group"><label class="form-label">Studio Name</label>
+          <input class="input" id="p-studio" placeholder="Studio name"/></div>
         <div class="form-group">
           <label class="form-label">User Token (KV Sync)</label>
           <input class="input input-mono" id="p-token"/>
@@ -548,6 +593,14 @@
       <div class="settings-section">
         <div class="settings-heading">Active Styles</div>
         <div class="chips" id="settings-styles-chips"></div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-heading">Specialized Tracks</div>
+        <div class="form-hint" style="margin-bottom:.75rem;">Enable tracks that appear as dedicated buttons in the header.</div>
+        <label class="checkbox-label">
+          <input type="checkbox" id="setting-pointe"/>
+          Show Pointe tracker
+        </label>
       </div>
       <div class="settings-section">
         <div class="settings-heading">Injury Log</div>
@@ -588,7 +641,9 @@
           </select>
         </div>
       </div>
-      <div class="form-group"><label class="form-label">Description</label><textarea class="input textarea" id="inj-desc" style="min-height:80px;" placeholder="What happened? Pain level, circumstances…"></textarea></div>
+      <div class="form-group"><label class="form-label">Description</label>
+        <textarea class="input textarea" id="inj-desc" style="min-height:80px;"
+          placeholder="What happened? Pain level, circumstances…"></textarea></div>
       <div class="form-actions">
         <button class="btn btn-ghost" data-close="modal-injury">Cancel</button>
         <button class="btn btn-primary" id="btn-submit-injury">Save</button>
