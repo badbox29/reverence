@@ -481,6 +481,32 @@
           <input class="input" id="nc-time" placeholder="e.g. 4:00 PM"/>
         </div>
       </div>
+      <!-- Intensive duration — shown only when type = Intensive -->
+      <div id="nc-intensive-wrap" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Intensive Duration</label>
+          <select class="input" id="nc-intensive-duration">
+            <option value="3-day">3 days</option>
+            <option value="5-day">5 days</option>
+            <option value="1-week">1 week</option>
+            <option value="2-week">2 weeks</option>
+            <option value="1-month">1 month</option>
+            <option value="summer">Summer (6–8 weeks)</option>
+            <option value="custom">Custom dates…</option>
+          </select>
+        </div>
+        <div id="nc-intensive-custom" class="form-row" style="display:none;">
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input type="date" class="input" id="nc-intensive-start"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">End Date</label>
+            <input type="date" class="input" id="nc-intensive-end"/>
+          </div>
+        </div>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Days</label>
         <div class="chips" id="nc-days-chips">
