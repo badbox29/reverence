@@ -1155,10 +1155,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 // ── Account setup wizard (shown on new device with no local data) ──
 function showAccountSetup() {
   // Step 1: Ask if they have an existing account
-  document.getElementById('account-setup-title').textContent = 'Welcome to Reverence';
+  document.getElementById('account-setup-title').textContent = 'Welcome to Révérence';
   document.getElementById('account-setup-body').innerHTML = `
     <p class="f13 lh muted" style="margin-bottom:1.5rem;">
-      Do you already have a Reverence account on another device?
+      Do you already have a Révérence account on another device?
     </p>
     <div class="form-actions" style="flex-direction:column;gap:.65rem;">
       <button class="btn btn-primary w100" id="btn-setup-has-account" style="justify-content:center;">
@@ -1179,7 +1179,7 @@ function showAccountSetup() {
     renderSpotlight();
     renderSidebar();
     renderFeed();
-    toast('Welcome to Reverence 🩰');
+    toast('Welcome to Révérence 🩰');
   });
 }
 
