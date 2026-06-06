@@ -889,22 +889,53 @@ function openSettingsModal() {
   document.getElementById('setting-pointe').checked = !!D.showPointe;
   document.getElementById('settings-styles-chips').innerHTML=
     STYLES.map(s=>`<span class="chip${D.activeStyles.includes(s)?' on':''}" onclick="this.classList.toggle('on')" data-style="${s}">${s}</span>`).join('');
-  renderInjuryLog();
   openModal('modal-settings');
 }
 
 function renderInjuryLog() {
-  const el=document.getElementById('injury-log-list');
-  if(!D.injuryLog.length){ el.innerHTML='<div class="widget-empty">No injuries logged.</div>'; return; }
-  el.innerHTML=[...D.injuryLog].reverse().map(inj=>`
-    <div class="row sb" style="padding:.45rem 0;border-top:1px solid var(--border);font-size:.85rem;gap:.5rem;">
-      <div>
-        <span class="fw5" style="color:var(--cream);">${esc(inj.area)}</span>
-        <span class="f12 muted" style="margin-left:.4rem;">${fmtDateShort(inj.date)}</span>
-        <div class="f12 muted">${esc(inj.description.slice(0,60))}${inj.description.length>60?'…':''}</div>
+  const el = document.getElementById('injuries-list');
+  if (!el) return;
+  if (!D.injuryLog.length) {
+    el.innerHTML = '<div class="feed-empty" style="padding:2.5rem 1rem;"><div class="feed-empty-icon">🩹</div><p>No injuries logged yet.<br>Use the button above to log one.</p></div>';
+    return;
+  }
+  const statusColor = s => s === 'Healed' ? 'tag-group' : s === 'Recovering' ? 'tag-gold' : 'tag-style';
+  el.innerHTML = [...D.injuryLog].reverse().map(inj => `
+    <div class="injury-card">
+      <div class="row sb" style="margin-bottom:.4rem;align-items:flex-start;gap:.75rem;">
+        <div>
+          <span class="fw5 f14" style="color:var(--cream);">${esc(inj.area)}</span>
+          <span class="f12 muted" style="margin-left:.5rem;">${fmtDate(inj.date)}</span>
+        </div>
+        <div class="row gap-6" style="flex-shrink:0;align-items:center;">
+          <span class="tag ${statusColor(inj.status)}">${esc(inj.status)}</span>
+          <button class="injury-status-btn" onclick="cycleInjuryStatus('${inj.id}')" title="Cycle status">↻</button>
+          <button class="injury-delete-btn" onclick="deleteInjury('${inj.id}')" title="Delete">✕</button>
+        </div>
       </div>
-      <span class="tag ${inj.status==='Healed'?'tag-group':'tag-style'}">${esc(inj.status)}</span>
-    </div>`).join('');
+      ${inj.description ? `<div class="f13 lh" style="color:var(--muted2);margin-bottom:.35rem;">${esc(inj.description)}</div>` : ''}
+      ${inj.treatment   ? `<div class="f12 lh muted"><em>Treatment:</em> ${esc(inj.treatment)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function cycleInjuryStatus(id) {
+  const order = ['Active','Recovering','Healed'];
+  const inj = D.injuryLog.find(x => x.id === id); if (!inj) return;
+  inj.status = order[(order.indexOf(inj.status) + 1) % order.length];
+  save(); renderInjuryLog();
+  toast(`Status updated: ${inj.status}`);
+}
+
+function deleteInjury(id) {
+  if (!confirm('Remove this injury entry?')) return;
+  D.injuryLog = D.injuryLog.filter(x => x.id !== id);
+  save(); renderInjuryLog();
+}
+
+function openInjuriesModal() {
+  renderInjuryLog();
+  openModal('modal-injuries');
 }
 
 document.getElementById('btn-save-settings').addEventListener('click',()=>{
@@ -920,18 +951,30 @@ document.getElementById('btn-save-settings').addEventListener('click',()=>{
 });
 
 document.getElementById('btn-settings').addEventListener('click', openSettingsModal);
+document.getElementById('btn-injuries').addEventListener('click', openInjuriesModal);
+document.getElementById('btn-open-log-injury').addEventListener('click', ()=>{
+  ['inj-desc','inj-treatment'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('inj-area').value='Foot/Ankle';
+  document.getElementById('inj-status').value='Active';
+  openModal('modal-injury');
+});
 document.getElementById('btn-manual-sync').addEventListener('click', async ()=>{
   if(!workerBase()){ toast('No worker URL set in Settings.'); return; }
   toast('Syncing…');
   await pushToWorker();
   toast(syncStatus==='ok' ? 'Synced to worker ✓' : 'Sync failed — check worker URL.');
 });
-document.getElementById('btn-log-injury').addEventListener('click',()=>openModal('modal-injury'));
-
 document.getElementById('btn-submit-injury').addEventListener('click',()=>{
   const desc=val('inj-desc'); if(!desc) return;
-  D.injuryLog.push({id:uid(),date:today(),area:document.getElementById('inj-area').value,description:desc,status:document.getElementById('inj-status').value});
-  save(); renderInjuryLog(); closeModal('modal-injury'); toast('Injury logged.');
+  D.injuryLog.push({
+    id:uid(), date:today(),
+    area:      document.getElementById('inj-area').value,
+    status:    document.getElementById('inj-status').value,
+    description: desc,
+    treatment:   val('inj-treatment'),
+  });
+  save(); renderInjuryLog(); closeModal('modal-injury');
+  toast('Injury logged 🩹');
 });
 
 // ── Boot ──────────────────────────────────────────────────────────
@@ -1009,3 +1052,5 @@ window.setSkill           = setSkill;
 window.togglePointe       = togglePointe;
 window.updateGoalProgress = updateGoalProgress;
 window.openModal          = openModal;
+window.cycleInjuryStatus  = cycleInjuryStatus;
+window.deleteInjury       = deleteInjury;
