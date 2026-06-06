@@ -351,6 +351,58 @@ function renderSidebar() {
       </div>`).join('')
     : '<div class="widget-empty">No active goals yet.</div>';
 
+  // Upcoming classes — today and next class day from active season
+  const nowDate   = new Date();
+  const todayName = nowDate.toLocaleDateString('en-US',{weekday:'long'});
+  const tomorrowDate = new Date(nowDate); tomorrowDate.setDate(tomorrowDate.getDate()+1);
+  const tomorrowName = tomorrowDate.toLocaleDateString('en-US',{weekday:'long'});
+
+  // Find all non-archived seasons with classes
+  const activeSeasonsWithClasses = D.seasons.filter(s=>!s.archived&&(s.classes||[]).length>0);
+
+  // Collect classes tagged to today or tomorrow
+  const upcomingClasses = [];
+  activeSeasonsWithClasses.forEach(s=>{
+    (s.classes||[]).forEach(c=>{
+      const days = c.days||[];
+      if(days.includes(todayName))    upcomingClasses.push({...c, seasonName:s.name, when:'Today'});
+      else if(days.includes(tomorrowName)) upcomingClasses.push({...c, seasonName:s.name, when:'Tomorrow'});
+    });
+  });
+
+  // If nothing today or tomorrow, find the next class day within 7 days
+  if(!upcomingClasses.length) {
+    for(let offset=2; offset<=7; offset++){
+      const d=new Date(nowDate); d.setDate(d.getDate()+offset);
+      const dName=d.toLocaleDateString('en-US',{weekday:'long'});
+      const dLabel=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+      let found=false;
+      activeSeasonsWithClasses.forEach(s=>{
+        (s.classes||[]).forEach(c=>{
+          if((c.days||[]).includes(dName)){
+            upcomingClasses.push({...c, seasonName:s.name, when:dLabel});
+            found=true;
+          }
+        });
+      });
+      if(found) break;
+    }
+  }
+
+  document.getElementById('sidebar-classes').innerHTML = upcomingClasses.length
+    ? upcomingClasses.map(c=>`
+      <div class="widget-row">
+        <div style="flex:1;">
+          <div class="row gap-8 mb-4" style="align-items:center;">
+            <span class="upcoming-when upcoming-when-${c.when==='Today'?'today':c.when==='Tomorrow'?'tomorrow':'soon'}">${esc(c.when)}</span>
+            <span class="f13 fw5" style="color:var(--cream);">${esc(c.name)}</span>
+          </div>
+          <div class="f12 muted">${c.time?esc(c.time)+' · ':''}${esc(c.style)}${c.teacher?' · '+esc(c.teacher):''}</div>
+          ${c.seasonName?`<div class="f11 muted mt-4" style="opacity:.7;">${esc(c.seasonName)}</div>`:''}
+        </div>
+      </div>`).join('')
+    : '<div class="widget-empty">No classes scheduled in the next 7 days.</div>';
+
   // Upcoming events (next 90 days)
   const todayStr=today();
   const cutoff=new Date(); cutoff.setDate(cutoff.getDate()+90);
@@ -833,6 +885,7 @@ document.getElementById('sched-tab-active').addEventListener('click',   ()=>{ sc
 document.getElementById('sched-tab-archived').addEventListener('click',  ()=>{ schedView='archived'; renderScheduleModal(); });
 document.getElementById('btn-schedule').addEventListener('click',        openScheduleModal);
 document.getElementById('btn-open-schedule').addEventListener('click',   openScheduleModal);
+document.getElementById('btn-open-schedule-sidebar').addEventListener('click', openScheduleModal);
 
 document.getElementById('btn-new-season').addEventListener('click',()=>{
   ['ns-name','ns-end'].forEach(id=>document.getElementById(id).value='');
