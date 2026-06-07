@@ -1450,6 +1450,16 @@ document.getElementById('btn-save-settings').addEventListener('click',()=>{
 });
 
 document.getElementById('btn-settings').addEventListener('click', openSettingsModal);
+
+document.getElementById('btn-recalc-badges').addEventListener('click', () => {
+  if(!confirm('This will wipe all current badges and recalculate them from your actual data.\n\nAny badges earned through real practice will be re-awarded immediately. Badges that only existed due to deleted or corrected data will be removed.\n\nContinue?')) return;
+  D.badges = [];
+  checkBadges();
+  save();
+  renderSidebar();
+  const earned = D.badges.length;
+  toast(`Badges recalculated — ${earned} badge${earned !== 1 ? 's' : ''} earned from your current data.`);
+});
 document.getElementById('btn-injuries').addEventListener('click', openInjuriesModal);
 document.getElementById('btn-open-log-injury').addEventListener('click', ()=>{
   ['inj-desc','inj-treatment'].forEach(id=>document.getElementById(id).value='');
