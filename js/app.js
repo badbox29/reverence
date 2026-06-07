@@ -29,14 +29,48 @@ const EVENT_ICONS = {
 };
 
 const BADGE_DEFS = [
-  { id:'first_entry',  icon:'🩰', label:'First Steps',   desc:'Logged your first session' },
-  { id:'streak_7',     icon:'🔥', label:'Week Warrior',  desc:'7-day practice streak' },
-  { id:'goals_1',      icon:'⭐', label:'Goal Getter',   desc:'Completed your first goal' },
-  { id:'pointe_ready', icon:'🌟', label:'Pointe Ready',  desc:'Completed readiness checklist' },
-  { id:'hours_10',     icon:'⏱️', label:'10 Hours',      desc:'Logged 10 hours of practice' },
-  { id:'event_1',      icon:'🏆', label:'Performer',     desc:'Logged your first event' },
-  { id:'hours_50',     icon:'💫', label:'50 Hours',      desc:'Logged 50 hours of practice' },
-  { id:'styles_all',   icon:'🎭', label:'All Styles',    desc:'Logged sessions in all 6 styles' },
+  // ── Practice milestones ──────────────────────────────────────────
+  { id:'first_entry',   icon:'🩰', label:'First Steps',      desc:'Logged your first session' },
+  { id:'hours_10',      icon:'⏱️', label:'10 Hours',          desc:'Logged 10 hours of practice' },
+  { id:'hours_25',      icon:'🌙', label:'25 Hours',          desc:'Logged 25 hours of practice' },
+  { id:'hours_50',      icon:'💫', label:'50 Hours',          desc:'Logged 50 hours of practice' },
+  { id:'hours_100',     icon:'💎', label:'100 Hours',         desc:'Logged 100 hours of practice' },
+  { id:'hours_250',     icon:'🔮', label:'250 Hours',         desc:'Logged 250 hours of practice' },
+  { id:'hours_500',     icon:'👑', label:'500 Hours',         desc:'Logged 500 hours of practice' },
+  { id:'sessions_365',  icon:'📅', label:'365 Sessions',      desc:'Logged 365 total sessions' },
+  // ── Streaks ──────────────────────────────────────────────────────
+  { id:'streak_7',      icon:'🔥', label:'Week Warrior',      desc:'7-day practice streak' },
+  { id:'streak_30',     icon:'🌶️', label:'Month of Fire',     desc:'30-day practice streak' },
+  { id:'streak_90',     icon:'⚡', label:'Unstoppable',       desc:'90-day practice streak' },
+  // ── Goals ────────────────────────────────────────────────────────
+  { id:'goals_1',       icon:'⭐', label:'Goal Getter',       desc:'Completed your first goal' },
+  { id:'goals_5',       icon:'🌠', label:'High Achiever',     desc:'Completed 5 goals' },
+  { id:'goals_10',      icon:'🚀', label:'Dream Chaser',      desc:'Completed 10 goals' },
+  // ── Skills ───────────────────────────────────────────────────────
+  { id:'skill_5star',   icon:'✨', label:'Perfection',        desc:'Rated a skill 5 stars' },
+  { id:'style_mastered',icon:'🎖️', label:'Style Mastered',   desc:'All skills maxed in one style' },
+  { id:'styles_3',      icon:'🎨', label:'Multi-Stylist',     desc:'Tracked skills in 3+ styles' },
+  { id:'styles_all',    icon:'🎭', label:'All Styles',        desc:'Logged sessions in all 6 styles' },
+  // ── Events & Performance ─────────────────────────────────────────
+  { id:'event_1',       icon:'🏆', label:'Performer',         desc:'Logged your first event' },
+  { id:'event_comp_1',  icon:'🥇', label:'Competitor',        desc:'Logged your first competition' },
+  { id:'event_recital_1',icon:'🎭',label:'On Stage',          desc:'Logged your first recital' },
+  { id:'event_5',       icon:'🌟', label:'Seasoned Performer',desc:'Logged 5 events' },
+  { id:'event_10',      icon:'💃', label:'Star',              desc:'Logged 10 events' },
+  { id:'podium',        icon:'🥇', label:'Podium',            desc:'Logged a 1st place finish' },
+  // ── Seasons & Classes ────────────────────────────────────────────
+  { id:'first_season',  icon:'📆', label:'New Season',        desc:'Created your first season' },
+  { id:'first_class',   icon:'🏫', label:'Class Act',         desc:'Logged a session tied to a class' },
+  { id:'season_complete',icon:'🎓',label:'Season Complete',   desc:'Logged entries across a full season' },
+  // ── Pointe ───────────────────────────────────────────────────────
+  { id:'pointe_ready',  icon:'🌟', label:'Pointe Ready',      desc:'Completed pointe readiness checklist' },
+  { id:'shoe_log_1',    icon:'👟', label:'Fitted',            desc:'Logged your first pointe shoe fitting' },
+  { id:'pointe_cond',   icon:'💪', label:'Conditioned',       desc:'Completed the full conditioning checklist' },
+  // ── Fun & Surprise ───────────────────────────────────────────────
+  { id:'triple_threat', icon:'🌈', label:'Triple Threat',     desc:'Logged 3 different styles in one day' },
+  { id:'early_bird',    icon:'🌅', label:'Early Bird',        desc:'Added a session note before 7am' },
+  { id:'night_owl',     icon:'🦉', label:'Night Owl',         desc:'Added a session note after 10pm' },
+  { id:'journaler',     icon:'📝', label:'Journaler',         desc:'Added notes to 50 sessions' },
 ];
 
 const DEFAULT_SKILLS = {
@@ -249,23 +283,94 @@ function initData() {
 
 // ── Badge checks ──────────────────────────────────────────────────
 function checkBadges() {
-  const b=D.badges, add=id=>{ if(!b.includes(id)) b.push(id); };
-  if(D.entries.length>=1) add('first_entry');
-  const hrs=D.entries.reduce((a,e)=>a+(e.duration||0),0)/60;
-  if(hrs>=10) add('hours_10');
-  if(hrs>=50) add('hours_50');
-  if(D.events.length>=1) add('event_1');
-  if(D.goals.some(g=>g.completed)) add('goals_1');
-  if(POINTE_READINESS.every(r=>D.pointeLog.readiness[r])) add('pointe_ready');
-  const usedStyles=new Set(D.entries.map(e=>e.style));
-  if(STYLES.every(s=>usedStyles.has(s))) add('styles_all');
+  const b = D.badges;
+  const add = id => { if(!b.includes(id)) b.push(id); };
+
+  // ── Practice hours ─────────────────────────────────────────────
+  const hrs = D.entries.reduce((a,e)=>a+(e.duration||0),0)/60;
+  if(D.entries.length >= 1)   add('first_entry');
+  if(hrs >= 10)  add('hours_10');
+  if(hrs >= 25)  add('hours_25');
+  if(hrs >= 50)  add('hours_50');
+  if(hrs >= 100) add('hours_100');
+  if(hrs >= 250) add('hours_250');
+  if(hrs >= 500) add('hours_500');
+  if(D.entries.length >= 365) add('sessions_365');
+
+  // ── Streaks ────────────────────────────────────────────────────
   let streak=0, cur=new Date(); cur.setHours(0,0,0,0);
-  for(let i=0;i<60;i++){
+  for(let i=0;i<120;i++){
     const ds=cur.toISOString().split('T')[0];
     if(D.entries.some(e=>e.date===ds)){ streak++; cur.setDate(cur.getDate()-1); }
     else if(i===0){ cur.setDate(cur.getDate()-1); } else break;
   }
-  if(streak>=7) add('streak_7');
+  if(streak >= 7)  add('streak_7');
+  if(streak >= 30) add('streak_30');
+  if(streak >= 90) add('streak_90');
+
+  // ── Goals ──────────────────────────────────────────────────────
+  const completedGoals = D.goals.filter(g=>g.completed).length;
+  if(completedGoals >= 1)  add('goals_1');
+  if(completedGoals >= 5)  add('goals_5');
+  if(completedGoals >= 10) add('goals_10');
+
+  // ── Skills ─────────────────────────────────────────────────────
+  const allSkills = Object.values(D.skills||{}).flat();
+  if(allSkills.some(s=>s.level===5)) add('skill_5star');
+
+  // Style mastered: all skills in at least one style are 5 stars
+  const stylesMastered = STYLES.filter(style=>{
+    const sk = D.skills[style]||[];
+    return sk.length > 0 && sk.every(s=>s.level===5);
+  });
+  if(stylesMastered.length >= 1) add('style_mastered');
+
+  // Styles with at least one logged skill (level > 0)
+  const stylesWithSkills = STYLES.filter(style=>(D.skills[style]||[]).some(s=>s.level>0));
+  if(stylesWithSkills.length >= 3) add('styles_3');
+
+  // All styles logged
+  const usedStyles = new Set(D.entries.map(e=>e.style));
+  if(STYLES.every(s=>usedStyles.has(s))) add('styles_all');
+
+  // ── Events ─────────────────────────────────────────────────────
+  if(D.events.length >= 1)  add('event_1');
+  if(D.events.length >= 5)  add('event_5');
+  if(D.events.length >= 10) add('event_10');
+  if(D.events.some(e=>e.type==='Competition'))             add('event_comp_1');
+  if(D.events.some(e=>e.type==='Recital'))                 add('event_recital_1');
+  if(D.events.some(e=>e.placement&&e.placement.match(/^(1st|1|first|gold|platinum)/i))) add('podium');
+
+  // ── Seasons & Classes ──────────────────────────────────────────
+  if(D.seasons.length >= 1) add('first_season');
+  if(D.entries.some(e=>e.classId)) add('first_class');
+
+  // Season complete: any season where entries span the full date range
+  D.seasons.forEach(s=>{
+    if(!s.startDate||!s.endDate) return;
+    const seasonEntries = D.entries.filter(e=>e.seasonId===s.id);
+    if(!seasonEntries.length) return;
+    const dates = seasonEntries.map(e=>e.date).sort();
+    if(dates[0] <= s.startDate && dates[dates.length-1] >= s.endDate) add('season_complete');
+  });
+
+  // ── Pointe ─────────────────────────────────────────────────────
+  if(POINTE_READINESS.every(r=>D.pointeLog.readiness[r]))  add('pointe_ready');
+  if((D.pointeLog.shoes||[]).length >= 1)                  add('shoe_log_1');
+  if(POINTE_COND.every(r=>D.pointeLog.conditioning[r]))    add('pointe_cond');
+
+  // ── Fun & Surprise ─────────────────────────────────────────────
+  // Triple threat: 3 different styles in one day
+  const byDate = {};
+  D.entries.forEach(e=>{ if(!byDate[e.date]) byDate[e.date]=new Set(); byDate[e.date].add(e.style); });
+  if(Object.values(byDate).some(s=>s.size>=3)) add('triple_threat');
+
+  // Journaler: 50 entries with notes
+  if(D.entries.filter(e=>e.notes&&e.notes.trim().length>0).length >= 50) add('journaler');
+
+  // Early bird / night owl: check entry dates for time-based hints
+  // We don't store time, so award these based on lastModified hour when entry is created
+  // We'll track this via a special flag set at log time instead
 }
 
 // ── Modal system ──────────────────────────────────────────────────
@@ -421,12 +526,18 @@ function renderSidebar() {
       </div>`).join('')
     : '<div class="widget-empty">No upcoming events.</div>';
 
-  // Badges
-  document.getElementById('sidebar-badges').innerHTML = BADGE_DEFS.map(b=>`
-    <div class="badge-item${D.badges.includes(b.id)?'':' locked'}" title="${esc(b.desc)}">
-      <div class="badge-icon">${b.icon}</div>
-      <div class="badge-label">${esc(b.label)}</div>
-    </div>`).join('');
+  // Badges — only show earned ones
+  const earnedBadges = BADGE_DEFS.filter(b=>D.badges.includes(b.id));
+  const badgesEl = document.getElementById('sidebar-badges');
+  if(!earnedBadges.length){
+    badgesEl.innerHTML='<div class="widget-empty">No badges yet — keep dancing!</div>';
+  } else {
+    badgesEl.innerHTML = earnedBadges.map(b=>`
+      <div class="badge-item" title="${esc(b.desc)}">
+        <div class="badge-icon">${b.icon}</div>
+        <div class="badge-label">${esc(b.label)}</div>
+      </div>`).join('');
+  }
 }
 
 // ── Spotlight ─────────────────────────────────────────────────────
@@ -636,13 +747,24 @@ document.getElementById('btn-submit-log').addEventListener('click', function(){
     // Editing existing entry
     D.entries = D.entries.map(e => e.id===editId ? {...e, ...entryData} : e);
   } else {
-    // New entry
+    // New entry — check time-based badges before pushing
+    const nowHour = new Date().getHours();
+    if(nowHour < 7)  { if(!D.badges.includes('early_bird')) D.badges.push('early_bird'); }
+    if(nowHour >= 22){ if(!D.badges.includes('night_owl'))  D.badges.push('night_owl');  }
     D.entries.push({ id:uid(), ...entryData });
   }
 
-  checkBadges(); save(); renderFeed(); renderSidebar(); renderSpotlight();
+  const beforeBadges = [...D.badges];
+  checkBadges();
+  const newBadges = D.badges.filter(id=>!beforeBadges.includes(id));
+  save(); renderFeed(); renderSidebar(); renderSpotlight();
   closeModal('modal-log');
-  toast(editId ? 'Session updated ✓' : 'Session logged ✓');
+  if(newBadges.length) {
+    const b = BADGE_DEFS.find(x=>x.id===newBadges[0]);
+    if(b) setTimeout(()=>toast(`${b.icon} Badge unlocked: ${b.label}!`), 400);
+  } else {
+    toast(editId ? 'Session updated ✓' : 'Session logged ✓');
+  }
 
   // Reset button state (modal is closed but reset anyway)
   this.disabled = false;
