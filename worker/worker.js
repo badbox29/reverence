@@ -58,7 +58,7 @@ const RATE_KEY_TTL = RATE_WINDOW_SECONDS * 2; // KV TTL for rate limit entries
 
 // Google OAuth — set this to your Google Cloud OAuth Client ID when ready.
 // The worker uses it to verify ID tokens issued by Google.
-const GOOGLE_CLIENT_ID = null; // e.g. '123456789-abc.apps.googleusercontent.com'
+const GOOGLE_CLIENT_ID = '816310286560-4tgoor67vdu5jh65nlul0lr78rkrc5bc.apps.googleusercontent.com';
 
 // ── Google JWT verification (stub) ───────────────────────────────
 // Verifies a Google ID token by checking the signature against
