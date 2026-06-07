@@ -1376,5 +1376,5 @@ body.light .spotlight .spotlight-meta    { color: #daa59f; }
 body.light .spotlight .spotlight-excerpt { color: rgba(242,237,230,.75); }
 body.light .spotlight .spotlight-growth  { color: #d4b97a; border-top-color: rgba(184,152,90,.2); }
 body.light .spotlight .spotlight-empty   { color: rgba(242,237,230,.4); }
-body.light .spotlight::before            { color: #b8985a; }
+body.light .spotlight::before            { color: #b8985a; opacity: .18; }
 body.light .spotlight .spotlight-frame::before { background: #d4b97a; }
