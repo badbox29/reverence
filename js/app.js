@@ -1646,16 +1646,16 @@ function openSettingsModal() {
     STYLES.map(s=>`<span class="chip${D.activeStyles.includes(s)?' on':''}" onclick="this.classList.toggle('on')" data-style="${s}">${s}</span>`).join('');
 
   // ── Auth method display ────────────────────────────────────────
-  // Show current auth method in the sync section. Token field is
-  // read-only for Google accounts (token is not their credential).
-  const authBadgeEl = document.getElementById('settings-auth-badge');
-  const tokenGroupEl = document.getElementById('settings-token-group');
-  const googleInfoEl = document.getElementById('settings-google-info');
+  const authBadgeEl   = document.getElementById('settings-auth-badge');
+  const tokenGroupEl  = document.getElementById('settings-token-group');
+  const googleInfoEl  = document.getElementById('settings-google-info');
+  const upgradeEl     = document.getElementById('settings-upgrade-google');
 
   if(isGoogleAccount()) {
     if(authBadgeEl)  authBadgeEl.textContent  = 'Google Account';
     if(authBadgeEl)  authBadgeEl.className    = 'auth-badge auth-badge-google';
     if(tokenGroupEl) tokenGroupEl.style.display = 'none';
+    if(upgradeEl)    upgradeEl.style.display    = 'none';
     if(googleInfoEl) {
       const g = D.linkedGoogle;
       googleInfoEl.style.display = '';
@@ -1674,6 +1674,8 @@ function openSettingsModal() {
     if(authBadgeEl)  authBadgeEl.className    = 'auth-badge auth-badge-token';
     if(tokenGroupEl) tokenGroupEl.style.display = '';
     if(googleInfoEl) googleInfoEl.style.display = 'none';
+    // Show upgrade option only for token accounts when Google auth is available
+    if(upgradeEl) upgradeEl.style.display = isGoogleAuthAvailable() ? '' : 'none';
   }
 
   openModal('modal-settings');
@@ -1766,6 +1768,11 @@ document.getElementById('btn-switch-account').addEventListener('click', ()=>{
   document.getElementById('switch-token-input').value='';
   document.getElementById('switch-account-status').textContent='';
   openModal('modal-switch-account');
+});
+
+document.getElementById('btn-upgrade-to-google')?.addEventListener('click', ()=>{
+  closeModal('modal-settings');
+  showGoogleUpgradeFlow();
 });
 
 document.getElementById('btn-submit-switch-account').addEventListener('click', async ()=>{
@@ -2071,18 +2078,30 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// ── Account setup wizard (shown on new device with no local data) ──
+// ── Account setup wizard ──────────────────────────────────────────
+// Screen flow:
+//   S1 (Welcome) → S2A (Load: choose Google or Token)
+//                → S2B (Start Fresh: name + worker + auth choice)
+//   S2A → S3A (Google load: worker URL → unlock Google button)
+//       → S3B (Token load: worker URL + token → load)
+//
+// Helper: set title and body together
+function setupScreen(title, html) {
+  document.getElementById('account-setup-title').textContent = title;
+  document.getElementById('account-setup-body').innerHTML = html;
+}
+
+// Helper: test worker URL connectivity. Returns true if reachable.
+async function testWorkerUrl(url) {
+  try {
+    const res = await fetch(`${url.replace(/\/+$/,'')}/`, { method: 'GET' });
+    return res.ok;
+  } catch { return false; }
+}
+
+// ── S1: Welcome ───────────────────────────────────────────────────
 function showAccountSetup() {
-  // Step 1: Ask if they have an existing account
-  document.getElementById('account-setup-title').textContent = 'Welcome to Révérence';
-
-  // Google sign-in option only shown when GOOGLE_CLIENT_ID is configured
-  const googleSection = isGoogleAuthAvailable()
-    ? `<div class="auth-divider"><span>or</span></div>
-       <div id="btn-setup-google-container" style="width:100%;min-height:44px;"></div>`
-    : '';
-
-  document.getElementById('account-setup-body').innerHTML = `
+  setupScreen('Welcome to Révérence', `
     <p class="f13 lh muted" style="margin-bottom:1.5rem;">
       Do you already have a Révérence account on another device?
     </p>
@@ -2093,48 +2112,107 @@ function showAccountSetup() {
       <button class="btn btn-ghost w100" id="btn-setup-new-account" style="justify-content:center;">
         No — start fresh
       </button>
-      ${googleSection}
     </div>
-  `;
+  `);
   openModal('modal-account-setup');
+  document.getElementById('btn-setup-has-account').addEventListener('click', showSetupLoadChoice);
+  document.getElementById('btn-setup-new-account').addEventListener('click', showSetupFresh);
+}
 
-  document.getElementById('btn-setup-has-account').addEventListener('click', showSetupAccountChoice);
-  document.getElementById('btn-setup-new-account').addEventListener('click', ()=>{
-    closeModal('modal-account-setup');
-    KV.set('appdata', D);
-    checkBadges();
-    applyTheme();
-    updatePointeButton();
-    renderSpotlight();
-    renderSidebar();
-    renderFeed();
-    toast('Welcome to Révérence 🩰');
-  });
+// ── S2A: Load existing — choose auth method ───────────────────────
+function showSetupLoadChoice() {
+  const googleOption = isGoogleAuthAvailable()
+    ? `<button class="btn btn-ghost w100" id="btn-load-via-google" style="justify-content:center;">
+         Sign in with Google
+       </button>`
+    : '';
 
+  setupScreen('Load Existing Account', `
+    <p class="f13 lh muted" style="margin-bottom:1.25rem;">
+      How is your account secured?
+    </p>
+    <div class="form-actions" style="flex-direction:column;gap:.65rem;">
+      <button class="btn btn-primary w100" id="btn-load-via-token" style="justify-content:center;">
+        Continue with Révérence token
+      </button>
+      ${googleOption}
+      <div class="auth-divider" style="margin:.1rem 0;"></div>
+      <button class="btn btn-ghost btn-sm" id="btn-setup-back" style="justify-content:center;">← Back</button>
+    </div>
+  `);
+  document.getElementById('btn-setup-back').addEventListener('click', showAccountSetup);
+  document.getElementById('btn-load-via-token').addEventListener('click', showSetupLoadToken);
   if(isGoogleAuthAvailable()) {
-    const container = document.getElementById('btn-setup-google-container');
-    if(container) {
-      signInWithGoogle(container).then(result => {
-        if(result?.ok) {
-          closeModal('modal-account-setup');
-          toast(result.isNewAccount ? 'Welcome to Révérence 🩰' : 'Account loaded ✓');
-        }
-      });
-    }
+    document.getElementById('btn-load-via-google')?.addEventListener('click', showSetupLoadGoogle);
   }
 }
 
-// showSetupAccountChoice — shown when user says they have an existing account.
-// Offers token entry or Google sign-in.
-function showSetupAccountChoice() {
-  document.getElementById('account-setup-title').textContent = 'Load Existing Account';
+// ── S3A: Load via Google — worker URL first, then Google button ───
+function showSetupLoadGoogle() {
+  setupScreen('Sign in with Google', `
+    <p class="f13 lh muted" style="margin-bottom:1rem;">
+      Enter your Worker URL to connect, then sign in with Google.
+    </p>
+    <div class="form-group">
+      <label class="form-label">Worker URL</label>
+      <div class="row gap-8">
+        <input class="input" id="setup-worker-url" placeholder="https://reverence.yourname.workers.dev" style="flex:1;"/>
+        <button class="btn btn-outline btn-sm" id="btn-test-worker" style="white-space:nowrap;">Test</button>
+      </div>
+      <div id="setup-status" style="min-height:1.3rem;font-size:.82rem;margin-top:.35rem;"></div>
+    </div>
+    <div id="google-btn-container" style="width:100%;min-height:44px;opacity:.35;pointer-events:none;transition:opacity .25s;"></div>
+    <div class="row gap-8 mt-8" style="justify-content:flex-start;">
+      <button class="btn btn-ghost btn-sm" id="btn-setup-back">← Back</button>
+    </div>
+  `);
 
-  const googleSection = isGoogleAuthAvailable()
-    ? `<div class="auth-divider"><span>or</span></div>
-       <div id="btn-load-google-container" style="width:100%;min-height:44px;"></div>`
-    : '';
+  document.getElementById('btn-setup-back').addEventListener('click', showSetupLoadChoice);
 
-  document.getElementById('account-setup-body').innerHTML = `
+  const workerInput  = document.getElementById('setup-worker-url');
+  const statusEl     = document.getElementById('setup-status');
+  const googleCtr    = document.getElementById('google-btn-container');
+
+  // Render the Google button into the container immediately —
+  // it's just visually locked until the worker URL is confirmed.
+  signInWithGoogle(googleCtr).then(result => {
+    if(result?.ok) {
+      closeModal('modal-account-setup');
+      toast(result.isNewAccount ? 'Welcome to Révérence 🩰' : 'Account loaded ✓');
+      startSyncPing();
+    } else if(result === null && D.workerUrl) {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'Sign-in cancelled — try again.';
+      googleCtr.style.opacity    = '1';
+      googleCtr.style.pointerEvents = 'auto';
+    }
+  });
+
+  async function unlockGoogle() {
+    const url = workerInput.value.trim();
+    if(!url) { statusEl.style.color='var(--red)'; statusEl.textContent='Enter a Worker URL first.'; return; }
+    statusEl.style.color = 'var(--gold2)';
+    statusEl.textContent = 'Testing connection…';
+    const ok = await testWorkerUrl(url);
+    if(ok) {
+      D.workerUrl = url.replace(/\/+$/,'');
+      statusEl.style.color = 'var(--green)';
+      statusEl.textContent = 'Connected ✓ — click the button below to sign in.';
+      googleCtr.style.opacity    = '1';
+      googleCtr.style.pointerEvents = 'auto';
+    } else {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'Could not reach that URL — check it and try again.';
+    }
+  }
+
+  document.getElementById('btn-test-worker').addEventListener('click', unlockGoogle);
+  workerInput.addEventListener('keydown', e => { if(e.key==='Enter') unlockGoogle(); });
+}
+
+// ── S3B: Load via token ───────────────────────────────────────────
+function showSetupLoadToken() {
+  setupScreen('Load with Token', `
     <p class="f13 lh muted" style="margin-bottom:1rem;">
       Enter your Worker URL and token from your other device.
     </p>
@@ -2146,35 +2224,43 @@ function showSetupAccountChoice() {
       <label class="form-label">Your Token</label>
       <input class="input input-mono" id="setup-token" placeholder="Paste your token here…"/>
     </div>
-    <div id="setup-status" style="min-height:1.4rem;font-size:.82rem;color:var(--red);margin-bottom:.75rem;"></div>
-    <div class="form-actions" style="flex-direction:column;gap:.65rem;">
-      <div class="row gap-8 w100" style="justify-content:space-between;">
-        <button class="btn btn-ghost" id="btn-setup-back">← Back</button>
-        <button class="btn btn-primary" id="btn-setup-load">Load Account</button>
-      </div>
-      ${googleSection}
+    <div id="setup-status" style="min-height:1.4rem;font-size:.82rem;color:var(--red);margin-bottom:.5rem;"></div>
+    <div class="row gap-8" style="justify-content:space-between;">
+      <button class="btn btn-ghost" id="btn-setup-back">← Back</button>
+      <button class="btn btn-primary" id="btn-setup-load">Load Account</button>
     </div>
-  `;
+  `);
 
-  document.getElementById('btn-setup-back').addEventListener('click', showAccountSetup);
-  document.getElementById('btn-setup-load').addEventListener('click', async () => {
-    const workerUrl = document.getElementById('setup-worker-url').value.trim();
-    const token     = document.getElementById('setup-token').value.trim();
-    const statusEl  = document.getElementById('setup-status');
+  document.getElementById('btn-setup-back').addEventListener('click', showSetupLoadChoice);
 
-    if(!workerUrl) { statusEl.textContent='Please enter your Worker URL.'; return; }
-    if(!token)     { statusEl.textContent='Please enter your token.'; return; }
+  const workerInput = document.getElementById('setup-worker-url');
+  const tokenInput  = document.getElementById('setup-token');
+  const loadBtn     = document.getElementById('btn-setup-load');
+  const statusEl    = document.getElementById('setup-status');
 
-    statusEl.style.color='var(--gold2)';
-    statusEl.textContent='Looking up account…';
+  // Enable load button only when both fields have content
+  function checkFields() {
+    loadBtn.disabled = !(workerInput.value.trim() && tokenInput.value.trim());
+  }
+  workerInput.addEventListener('input', checkFields);
+  tokenInput.addEventListener('input', checkFields);
+  loadBtn.disabled = true;
+
+  loadBtn.addEventListener('click', async () => {
+    const workerUrl = workerInput.value.trim();
+    const token     = tokenInput.value.trim();
+    loadBtn.disabled = true;
+    statusEl.style.color = 'var(--gold2)';
+    statusEl.textContent = 'Looking up account…';
 
     D.workerUrl = workerUrl;
     const remote = await pullFromWorker(token);
 
     if(!remote) {
-      statusEl.style.color='var(--red)';
-      statusEl.textContent='No account found for that token. Check both fields and try again.';
-      D.workerUrl='';
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'No account found. Check both fields and try again.';
+      D.workerUrl = '';
+      loadBtn.disabled = false;
       return;
     }
 
@@ -2185,20 +2271,241 @@ function showSetupAccountChoice() {
     startSyncPing();
     toast('Account loaded ✓');
   });
+}
 
+// ── S2B: Start fresh ──────────────────────────────────────────────
+function showSetupFresh() {
+  const googleOption = isGoogleAuthAvailable()
+    ? `<button class="btn btn-ghost w100" id="btn-fresh-google" style="justify-content:center;">
+         Link Google Account
+       </button>`
+    : '';
+
+  setupScreen('Start Fresh', `
+    <p class="f13 lh muted" style="margin-bottom:1rem;">
+      Tell us a little about yourself to get started.
+    </p>
+    <div class="form-group">
+      <label class="form-label">Your Name</label>
+      <input class="input" id="fresh-name" placeholder="First name, last name, or username…"/>
+      <div class="form-hint">This appears in your journal and year in review.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Worker URL</label>
+      <input class="input" id="fresh-worker-url" placeholder="https://reverence.yourname.workers.dev"/>
+      <div class="form-hint">Required for cross-device sync. Deploy worker.js to Cloudflare Workers first.</div>
+    </div>
+    <div id="setup-status" style="min-height:1.3rem;font-size:.82rem;color:var(--red);margin-bottom:.5rem;"></div>
+    <div class="form-actions" style="flex-direction:column;gap:.65rem;">
+      <button class="btn btn-primary w100" id="btn-fresh-token" style="justify-content:center;">
+        Use Révérence Token
+      </button>
+      ${googleOption}
+      <div class="auth-divider" style="margin:.1rem 0;"></div>
+      <button class="btn btn-ghost btn-sm" id="btn-setup-back" style="justify-content:center;">← Back</button>
+    </div>
+  `);
+
+  document.getElementById('btn-setup-back').addEventListener('click', showAccountSetup);
+
+  const nameInput   = document.getElementById('fresh-name');
+  const workerInput = document.getElementById('fresh-worker-url');
+  const statusEl    = document.getElementById('setup-status');
+
+  function validateFresh() {
+    const name   = nameInput.value.trim();
+    const worker = workerInput.value.trim();
+    if(!name)   { statusEl.textContent = 'Please enter your name.';       return false; }
+    if(!worker) { statusEl.textContent = 'Please enter your Worker URL.'; return false; }
+    statusEl.textContent = '';
+    return true;
+  }
+
+  // ── Use token ─────────────────────────────────────────────────
+  document.getElementById('btn-fresh-token').addEventListener('click', async () => {
+    if(!validateFresh()) return;
+    const name   = nameInput.value.trim();
+    const worker = workerInput.value.trim();
+
+    statusEl.style.color = 'var(--gold2)';
+    statusEl.textContent = 'Creating account…';
+
+    D.userName  = name;
+    D.workerUrl = worker.replace(/\/+$/,'');
+    D.authMethod = 'token';
+    KV.set('appdata', D);
+
+    const ok = await pushToWorker();
+    if(!ok) {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'Could not reach Worker URL — check it and try again.';
+      D.workerUrl = '';
+      return;
+    }
+
+    checkBadges(); applyTheme(); updatePointeButton();
+    renderSpotlight(); renderSidebar(); renderFeed();
+    closeModal('modal-account-setup');
+    startSyncPing();
+    toast(`Welcome to Révérence, ${name} 🩰`);
+  });
+
+  // ── Link Google ───────────────────────────────────────────────
   if(isGoogleAuthAvailable()) {
-    const container = document.getElementById('btn-load-google-container');
-    if(container) {
-      signInWithGoogle(container).then(result => {
-        if(result?.ok) {
-          closeModal('modal-account-setup');
-          toast(result.isNewAccount
-            ? 'No existing account found — started fresh with Google ✓'
-            : 'Account loaded ✓');
-        }
+    document.getElementById('btn-fresh-google')?.addEventListener('click', async () => {
+      if(!validateFresh()) return;
+      const name   = nameInput.value.trim();
+      const worker = workerInput.value.trim();
+
+      statusEl.style.color = 'var(--gold2)';
+      statusEl.textContent = 'Testing connection…';
+
+      D.userName  = name;
+      D.workerUrl = worker.replace(/\/+$/,'');
+
+      const connected = await testWorkerUrl(D.workerUrl);
+      if(!connected) {
+        statusEl.style.color = 'var(--red)';
+        statusEl.textContent = 'Could not reach Worker URL — check it and try again.';
+        D.workerUrl = '';
+        return;
+      }
+
+      statusEl.textContent = 'Connected — opening Google sign-in…';
+
+      // Show a Google button screen for the final step
+      showSetupFreshGoogle(name, worker);
+    });
+  }
+}
+
+// ── S2B → Google: final Google sign-in step for new accounts ─────
+function showSetupFreshGoogle(name, workerUrl) {
+  setupScreen('Link Google Account', `
+    <p class="f13 lh muted" style="margin-bottom:1rem;">
+      Sign in with Google to secure your new account.
+    </p>
+    <div id="fresh-google-container" style="width:100%;min-height:44px;"></div>
+    <div id="setup-status" style="min-height:1.3rem;font-size:.82rem;margin-top:.5rem;"></div>
+    <div class="row gap-8 mt-8" style="justify-content:flex-start;">
+      <button class="btn btn-ghost btn-sm" id="btn-setup-back">← Back</button>
+    </div>
+  `);
+
+  document.getElementById('btn-setup-back').addEventListener('click', showSetupFresh);
+
+  const container = document.getElementById('fresh-google-container');
+  const statusEl  = document.getElementById('setup-status');
+
+  D.userName  = name;
+  D.workerUrl = workerUrl.replace(/\/+$/,'');
+
+  signInWithGoogle(container).then(result => {
+    if(result?.ok) {
+      closeModal('modal-account-setup');
+      toast(`Welcome to Révérence, ${name} 🩰`);
+      startSyncPing();
+    } else {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'Sign-in cancelled — try again or go back.';
+    }
+  });
+}
+
+// ── Token → Google upgrade (called from Settings) ─────────────────
+function showGoogleUpgradeFlow() {
+  closeModal('modal-settings');
+  setupScreen('Upgrade to Google Sign-In', `
+    <p class="f13 lh muted" style="margin-bottom:1rem;">
+      Upgrading links your account to Google permanently.
+      Your token will stop working after this — it's a one-way change.
+    </p>
+    <div class="form-group">
+      <label class="form-label">Worker URL</label>
+      <div class="row gap-8">
+        <input class="input" id="upgrade-worker-url" value="${D.workerUrl||''}" style="flex:1;"/>
+        <button class="btn btn-outline btn-sm" id="btn-upgrade-test" style="white-space:nowrap;">Test</button>
+      </div>
+      <div id="upgrade-status" style="min-height:1.3rem;font-size:.82rem;margin-top:.35rem;"></div>
+    </div>
+    <div id="upgrade-google-container" style="width:100%;min-height:44px;opacity:.35;pointer-events:none;transition:opacity .25s;"></div>
+    <div class="row gap-8 mt-8" style="justify-content:flex-start;">
+      <button class="btn btn-ghost btn-sm" id="btn-upgrade-cancel">Cancel</button>
+    </div>
+  `);
+  openModal('modal-account-setup');
+
+  document.getElementById('btn-upgrade-cancel').addEventListener('click', () => {
+    closeModal('modal-account-setup');
+  });
+
+  const workerInput  = document.getElementById('upgrade-worker-url');
+  const statusEl     = document.getElementById('upgrade-status');
+  const googleCtr    = document.getElementById('upgrade-google-container');
+
+  // Wire Google button — completes migration on success
+  signInWithGoogle(googleCtr).then(async result => {
+    if(!result?.ok) {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'Sign-in cancelled — try again.';
+      googleCtr.style.opacity = '1';
+      googleCtr.style.pointerEvents = 'auto';
+      return;
+    }
+
+    // Perform server-side migration
+    const base     = workerBase();
+    const idToken  = KV.get('google_id_token');
+    const oldToken = D.userToken;
+
+    statusEl.style.color = 'var(--gold2)';
+    statusEl.textContent = 'Migrating account…';
+
+    try {
+      const res  = await fetch(`${base}/auth/migrate`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ idToken, oldToken }),
       });
+      const data = await res.json();
+      if(!res.ok || !data.ok) throw new Error(data.error || 'Migration failed');
+
+      // Update local state
+      D.authMethod   = 'google';
+      D.linkedGoogle = data.profile;
+      D.userToken    = data.kvKey;
+      KV.set('token_upgrade_dismissed', true);
+      save();
+
+      closeModal('modal-account-setup');
+      toast('Account upgraded to Google sign-in ✓');
+    } catch(err) {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = `Migration failed: ${err.message}`;
+    }
+  });
+
+  async function unlockUpgradeGoogle() {
+    const url = workerInput.value.trim();
+    if(!url) { statusEl.style.color='var(--red)'; statusEl.textContent='Enter a Worker URL first.'; return; }
+    statusEl.style.color = 'var(--gold2)';
+    statusEl.textContent = 'Testing connection…';
+    const ok = await testWorkerUrl(url);
+    if(ok) {
+      D.workerUrl = url.replace(/\/+$/,'');
+      statusEl.style.color = 'var(--green)';
+      statusEl.textContent = 'Connected ✓ — sign in with Google below to complete upgrade.';
+      googleCtr.style.opacity    = '1';
+      googleCtr.style.pointerEvents = 'auto';
+    } else {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'Could not reach that URL — check it and try again.';
     }
   }
+
+  document.getElementById('btn-upgrade-test').addEventListener('click', unlockUpgradeGoogle);
+  // Pre-test if worker URL already set
+  if(D.workerUrl) unlockUpgradeGoogle();
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2580,7 +2887,7 @@ window.updateGoalProgress = updateGoalProgress;
 window.openModal          = openModal;
 window.cycleInjuryStatus  = cycleInjuryStatus;
 window.deleteInjury       = deleteInjury;
-window.showAccountSetup      = showAccountSetup;
-window.showSetupAccountChoice= showSetupAccountChoice;
+window.showAccountSetup       = showAccountSetup;
+window.showSetupAccountChoice  = showSetupLoadChoice;
 window.editEntry          = editEntry;
 window.renderYearReview   = renderYearReview;
