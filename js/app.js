@@ -535,6 +535,10 @@ function openEntry(id) {
       ?`<div class="serif italic lh" style="font-size:1.05rem;color:var(--cream);margin-bottom:1rem;white-space:pre-wrap;">${esc(e.notes)}</div>`
       :'<p class="muted italic" style="margin-bottom:1rem;">No notes for this session.</p>'}
     ${e.mediaLink?`<a href="${esc(e.mediaLink)}" target="_blank" rel="noreferrer" style="color:var(--rose2);font-size:.9rem;">🎬 View Media →</a>`:''}
+    ${!archived?`
+    <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost btn-sm" onclick="editEntry('${e.id}')">✏️ Edit Session</button>
+    </div>`:''}
   `;
   openModal('modal-view-entry');
 }
@@ -545,18 +549,52 @@ document.getElementById('btn-delete-entry').addEventListener('click',()=>{
   save(); renderFeed(); renderSidebar(); closeModal('modal-view-entry'); toast('Entry deleted.');
 });
 
+function editEntry(id) {
+  const e = D.entries.find(x=>x.id===id); if(!e) return;
+  closeModal('modal-view-entry');
+  openLogModal(e);
+}
+
 // ── Log session ───────────────────────────────────────────────────
-function openLogModal() {
-  document.getElementById('ml-date').value=today();
-  ['ml-title','ml-notes','ml-link'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('ml-dur').value='60';
-  document.getElementById('ml-style').value=D.activeStyles[0]||'Ballet';
-  document.querySelectorAll('#ml-mood-chips .chip').forEach((c,i)=>c.classList.toggle('on',i===1));
+function openLogModal(editEntry) {
+  const btn = document.getElementById('btn-submit-log');
+  if(editEntry) {
+    // Pre-fill form with existing entry data
+    document.getElementById('ml-date').value  = editEntry.date||today();
+    document.getElementById('ml-title').value = editEntry.title||'';
+    document.getElementById('ml-notes').value = editEntry.notes||'';
+    document.getElementById('ml-link').value  = editEntry.mediaLink||'';
+    document.getElementById('ml-dur').value   = editEntry.duration||60;
+    document.getElementById('ml-style').value = editEntry.style||D.activeStyles[0]||'Ballet';
+    // Set mood chip
+    document.querySelectorAll('#ml-mood-chips .chip').forEach(c=>{
+      c.classList.toggle('on', c.dataset.mood===(editEntry.mood||'😊 Good'));
+    });
+    btn.textContent = 'Save Changes ✓';
+    btn.dataset.editId = editEntry.id;
+  } else {
+    document.getElementById('ml-date').value=today();
+    ['ml-title','ml-notes','ml-link'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('ml-dur').value='60';
+    document.getElementById('ml-style').value=D.activeStyles[0]||'Ballet';
+    document.querySelectorAll('#ml-mood-chips .chip').forEach((c,i)=>c.classList.toggle('on',i===1));
+    btn.textContent = 'Save Entry ✓';
+    btn.dataset.editId = '';
+  }
+  btn.disabled = false;
+  const titleEl = document.getElementById('modal-log-title');
+  if(titleEl) titleEl.textContent = editEntry ? 'Edit Session' : 'Log a Session';
+
   const activeSeason=D.seasons.find(s=>s.active);
   const seasonSel=document.getElementById('ml-season');
   seasonSel.innerHTML='<option value="">No season / Open practice</option>'+
-    D.seasons.filter(s=>!s.archived).map(s=>`<option value="${s.id}"${activeSeason?.id===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
+    D.seasons.filter(s=>!s.archived).map(s=>`<option value="${s.id}"${(editEntry?.seasonId||activeSeason?.id)===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
   updateLogClassDropdown();
+  // For edit: set the class dropdown after updating it
+  if(editEntry?.classId) {
+    const classSel=document.getElementById('ml-class');
+    if(classSel) classSel.value=editEntry.classId;
+  }
   openModal('modal-log');
 }
 
@@ -576,9 +614,13 @@ document.getElementById('ml-mood-chips').addEventListener('click',e=>{
   chip.classList.add('on');
 });
 
-document.getElementById('btn-submit-log').addEventListener('click',()=>{
-  const entry={
-    id:uid(),
+document.getElementById('btn-submit-log').addEventListener('click', function(){
+  if(this.disabled) return;
+  this.disabled = true;
+  this.textContent = 'Saving…';
+
+  const editId = this.dataset.editId||'';
+  const entryData = {
     title:    val('ml-title'),
     date:     document.getElementById('ml-date').value||today(),
     style:    document.getElementById('ml-style').value,
@@ -589,9 +631,23 @@ document.getElementById('btn-submit-log').addEventListener('click',()=>{
     notes:    val('ml-notes'),
     mediaLink:val('ml-link'),
   };
-  D.entries.push(entry);
+
+  if(editId) {
+    // Editing existing entry
+    D.entries = D.entries.map(e => e.id===editId ? {...e, ...entryData} : e);
+  } else {
+    // New entry
+    D.entries.push({ id:uid(), ...entryData });
+  }
+
   checkBadges(); save(); renderFeed(); renderSidebar(); renderSpotlight();
-  closeModal('modal-log'); toast('Session logged ✓');
+  closeModal('modal-log');
+  toast(editId ? 'Session updated ✓' : 'Session logged ✓');
+
+  // Reset button state (modal is closed but reset anyway)
+  this.disabled = false;
+  this.textContent = editId ? 'Save Changes ✓' : 'Save Entry ✓';
+  this.dataset.editId = '';
 });
 
 document.getElementById('btn-log-session').addEventListener('click', openLogModal);
@@ -792,9 +848,12 @@ document.getElementById('btn-delete-event').addEventListener('click',()=>{
   closeModal('modal-view-event'); toast('Event deleted.');
 });
 
-document.getElementById('btn-submit-event').addEventListener('click',()=>{
+document.getElementById('btn-submit-event').addEventListener('click',function(){
+  if(this.disabled) return;
+  this.disabled=true; this.textContent='Saving…';
   const type=document.getElementById('ev-type').value;
-  const name=val('ev-name'); if(!name) return;
+  const name=val('ev-name');
+  if(!name){ this.disabled=false; this.textContent='Save Event'; return; }
   const fields=EVENT_FIELDS[type]||[];
 
   const ev={ id:uid(), type, name, date:document.getElementById('ev-date').value||today(), venue:val('ev-venue'), media:val('ev-media'), notes:val('ev-notes') };
@@ -803,6 +862,7 @@ document.getElementById('btn-submit-event').addEventListener('click',()=>{
   D.events.push(ev);
   checkBadges(); save(); renderSidebar(); renderEventsList();
   closeModal('modal-new-event'); toast(`${EVENT_LABELS[type]} logged ${EVENT_ICONS[type]||'✓'}`);
+  this.disabled=false; this.textContent='Save Event';
 });
 
 document.getElementById('btn-events').addEventListener('click', openEventsModal);
@@ -1298,3 +1358,4 @@ window.cycleInjuryStatus  = cycleInjuryStatus;
 window.deleteInjury       = deleteInjury;
 window.showAccountSetup   = showAccountSetup;
 window.showSetupTokenEntry= showSetupTokenEntry;
+window.editEntry          = editEntry;
