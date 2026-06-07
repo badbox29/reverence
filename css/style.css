@@ -36,13 +36,13 @@
 
 body.light {
   /* Medium-depth warm earth tones — dark header stays dark */
-  --ink:    #cfc3ae;   /* page bg — medium warm tan, noticeable depth */
-  --ink2:   #f5efe3;   /* card surface — clearly lighter, lifts off bg */
-  --ink3:   #ede4d4;   /* inner card / input — one step deeper than card */
-  --ink4:   #c8bca8;   /* dividers, progress tracks */
-  --ink5:   #b0a490;   /* stronger borders */
-  --muted:  #7a6a56;   /* muted labels */
-  --muted2: #4e3e2c;   /* secondary text */
+  --ink:    #c8b898;   /* page bg — gold-warm tan, lives in the rose/gold universe */
+  --ink2:   #faf4e8;   /* card surface — warm cream, clearly lifts off bg */
+  --ink3:   #f0e8d4;   /* inner card / input — one step deeper than card */
+  --ink4:   #c2b48a;   /* dividers, progress tracks */
+  --ink5:   #a89870;   /* stronger borders */
+  --muted:  #7a6a50;   /* muted labels */
+  --muted2: #4a3a22;   /* secondary text */
   --cream:  #1a1410;   /* primary text — warm near-black */
   --border:  rgba(80,60,35,.14);
   --border2: rgba(80,60,35,.25);
