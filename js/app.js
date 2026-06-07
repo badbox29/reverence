@@ -207,7 +207,7 @@ function mergeData(raw) {
   if(!Array.isArray(merged.pointeLog.shoes)) merged.pointeLog.shoes=[];
   if(typeof merged.showPointe==='undefined') merged.showPointe=false;
   if(typeof merged.workerUrl==='undefined')    merged.workerUrl='';
-  if(typeof merged.authMethod==='undefined')   merged.authMethod='token';
+  if(typeof merged.authMethod==='undefined')   merged.authMethod='guest';
   if(typeof merged.linkedGoogle==='undefined') merged.linkedGoogle=null;
   if(typeof merged.createdAt==='undefined')    merged.createdAt=Date.now();
   if(typeof merged.lastModified==='undefined') merged.lastModified=0;
@@ -318,6 +318,12 @@ function isGoogleAuthAvailable() {
 
 function isGoogleAccount() {
   return D?.authMethod === 'google';
+}
+
+// isGuest() — true if the user hasn't created a real account yet.
+// Guest data is local-only; no worker sync, no token, no Google session.
+function isGuest() {
+  return !D?.authMethod || D?.authMethod === 'guest';
 }
 
 // waitForGIS() — resolves when the Google Identity Services library is ready.
@@ -520,10 +526,11 @@ function initData() {
     userName:     '',
     studioName:   '',
     // ── Auth ──────────────────────────────────────────────────────
-    // authMethod: 'token' | 'google'
+    // authMethod: 'guest' | 'token' | 'google'
+    // New sessions start as guest until the user creates an account.
     // linkedGoogle: null | { sub, email, name, picture }
     // createdAt: unix ms timestamp of account creation
-    authMethod:   'token',
+    authMethod:   'guest',
     linkedGoogle: null,
     createdAt:    Date.now(),
     // ─────────────────────────────────────────────────────────────
@@ -1650,12 +1657,27 @@ function openSettingsModal() {
   const tokenGroupEl  = document.getElementById('settings-token-group');
   const googleInfoEl  = document.getElementById('settings-google-info');
   const upgradeEl     = document.getElementById('settings-upgrade-google');
+  const guestEl       = document.getElementById('settings-guest-section');
+  const syncControlsEl= document.getElementById('settings-sync-controls');
 
-  if(isGoogleAccount()) {
-    if(authBadgeEl)  authBadgeEl.textContent  = 'Google Account';
-    if(authBadgeEl)  authBadgeEl.className    = 'auth-badge auth-badge-google';
-    if(tokenGroupEl) tokenGroupEl.style.display = 'none';
-    if(upgradeEl)    upgradeEl.style.display    = 'none';
+  if(isGuest()) {
+    if(authBadgeEl)    { authBadgeEl.textContent = 'Guest'; authBadgeEl.className = 'auth-badge auth-badge-guest'; }
+    if(tokenGroupEl)   tokenGroupEl.style.display   = 'none';
+    if(googleInfoEl)   googleInfoEl.style.display    = 'none';
+    if(upgradeEl)      upgradeEl.style.display       = 'none';
+    if(guestEl)        guestEl.style.display         = '';
+    if(syncControlsEl) syncControlsEl.style.display  = 'none';
+    // Hide worker URL field — guests don't use it
+    const workerGroup = document.getElementById('settings-worker-group');
+    if(workerGroup)    workerGroup.style.display      = 'none';
+  } else if(isGoogleAccount()) {
+    if(authBadgeEl)    { authBadgeEl.textContent = 'Google Account'; authBadgeEl.className = 'auth-badge auth-badge-google'; }
+    if(tokenGroupEl)   tokenGroupEl.style.display   = 'none';
+    if(upgradeEl)      upgradeEl.style.display       = 'none';
+    if(guestEl)        guestEl.style.display         = 'none';
+    if(syncControlsEl) syncControlsEl.style.display  = '';
+    const workerGroup = document.getElementById('settings-worker-group');
+    if(workerGroup)    workerGroup.style.display      = '';
     if(googleInfoEl) {
       const g = D.linkedGoogle;
       googleInfoEl.style.display = '';
@@ -1670,12 +1692,15 @@ function openSettingsModal() {
         : '';
     }
   } else {
-    if(authBadgeEl)  authBadgeEl.textContent  = 'Token';
-    if(authBadgeEl)  authBadgeEl.className    = 'auth-badge auth-badge-token';
-    if(tokenGroupEl) tokenGroupEl.style.display = '';
-    if(googleInfoEl) googleInfoEl.style.display = 'none';
-    // Show upgrade option only for token accounts when Google auth is available
-    if(upgradeEl) upgradeEl.style.display = isGoogleAuthAvailable() ? '' : 'none';
+    // Token account
+    if(authBadgeEl)    { authBadgeEl.textContent = 'Token'; authBadgeEl.className = 'auth-badge auth-badge-token'; }
+    if(tokenGroupEl)   tokenGroupEl.style.display   = '';
+    if(googleInfoEl)   googleInfoEl.style.display    = 'none';
+    if(guestEl)        guestEl.style.display         = 'none';
+    if(syncControlsEl) syncControlsEl.style.display  = '';
+    const workerGroup = document.getElementById('settings-worker-group');
+    if(workerGroup)    workerGroup.style.display      = '';
+    if(upgradeEl)      upgradeEl.style.display        = isGoogleAuthAvailable() ? '' : 'none';
   }
 
   openModal('modal-settings');
@@ -1773,6 +1798,11 @@ document.getElementById('btn-switch-account').addEventListener('click', ()=>{
 document.getElementById('btn-upgrade-to-google')?.addEventListener('click', ()=>{
   closeModal('modal-settings');
   showGoogleUpgradeFlow();
+});
+
+document.getElementById('btn-guest-create-account')?.addEventListener('click', ()=>{
+  closeModal('modal-settings');
+  showSetupFresh();
 });
 
 document.getElementById('btn-submit-switch-account').addEventListener('click', async ()=>{
@@ -2112,11 +2142,28 @@ function showAccountSetup() {
       <button class="btn btn-ghost w100" id="btn-setup-new-account" style="justify-content:center;">
         No — start fresh
       </button>
+      <div class="auth-divider"><span>or</span></div>
+      <button class="btn btn-ghost w100" id="btn-setup-guest" style="justify-content:center;opacity:.7;">
+        Try as a guest
+      </button>
     </div>
   `);
   openModal('modal-account-setup');
   document.getElementById('btn-setup-has-account').addEventListener('click', showSetupLoadChoice);
   document.getElementById('btn-setup-new-account').addEventListener('click', showSetupFresh);
+  document.getElementById('btn-setup-guest').addEventListener('click', () => {
+    // Stay as guest — data saves locally, no worker sync
+    D.authMethod = 'guest';
+    KV.set('appdata', D);
+    checkBadges();
+    applyTheme();
+    updatePointeButton();
+    renderSpotlight();
+    renderSidebar();
+    renderFeed();
+    closeModal('modal-account-setup');
+    toast('Exploring as guest — create an account anytime from Settings 🩰');
+  });
 }
 
 // ── S2A: Load existing — choose auth method ───────────────────────
@@ -2273,7 +2320,7 @@ function showSetupLoadToken() {
   });
 }
 
-// ── S2B: Start fresh ──────────────────────────────────────────────
+// ── S2B: Start fresh (also used for guest → account conversion) ───
 function showSetupFresh() {
   const googleOption = isGoogleAuthAvailable()
     ? `<button class="btn btn-ghost w100" id="btn-fresh-google" style="justify-content:center;">
@@ -2281,13 +2328,19 @@ function showSetupFresh() {
        </button>`
     : '';
 
-  setupScreen('Start Fresh', `
-    <p class="f13 lh muted" style="margin-bottom:1rem;">
-      Tell us a little about yourself to get started.
-    </p>
+  // Pre-populate name if already set (guest may have entered it in Settings)
+  const existingName = D?.userName || '';
+  const title  = isGuest() ? 'Create Your Account' : 'Start Fresh';
+  const intro  = isGuest()
+    ? 'Set up your account to save your data across devices. Everything you\'ve done as a guest comes with you.'
+    : 'Tell us a little about yourself to get started.';
+
+  setupScreen(title, `
+    <p class="f13 lh muted" style="margin-bottom:1rem;">${intro}</p>
     <div class="form-group">
       <label class="form-label">Your Name</label>
-      <input class="input" id="fresh-name" placeholder="First name, last name, or username…"/>
+      <input class="input" id="fresh-name" placeholder="First name, last name, or username…"
+             value="${esc(existingName)}"/>
       <div class="form-hint">This appears in your journal and year in review.</div>
     </div>
     <div class="form-group">
@@ -2306,7 +2359,11 @@ function showSetupFresh() {
     </div>
   `);
 
-  document.getElementById('btn-setup-back').addEventListener('click', showAccountSetup);
+  // Guests converting from Settings close modal on back;
+  // new users go back to S1.
+  document.getElementById('btn-setup-back').addEventListener('click', () => {
+    if(isGuest()) { closeModal('modal-account-setup'); } else { showAccountSetup(); }
+  });
 
   const nameInput   = document.getElementById('fresh-name');
   const workerInput = document.getElementById('fresh-worker-url');
