@@ -687,7 +687,17 @@
           Cross-Device Sync
           <span id="settings-auth-badge" class="auth-badge auth-badge-token">Token</span>
         </div>
-        <!-- Token auth fields — hidden for Google accounts -->
+        <!-- Guest mode — shown instead of sync controls -->
+        <div id="settings-guest-section" style="display:none;">
+          <p class="f13 lh muted" style="margin-bottom:.85rem;">
+            You're exploring as a guest. Your data is saved on this device only.
+            Create an account to sync across devices and keep your progress safe.
+          </p>
+          <button class="btn btn-primary w100" id="btn-guest-create-account" style="justify-content:center;">
+            Create Account
+          </button>
+        </div>
+        <!-- Token auth fields — hidden for Google accounts and guests -->
         <div id="settings-token-group">
           <div class="form-group">
             <label class="form-label">User Token</label>
@@ -695,14 +705,16 @@
             <div class="form-hint">Your unique ID. Use the same token on every device.</div>
           </div>
         </div>
-        <!-- Google account info — hidden for token accounts -->
+        <!-- Google account info — hidden for token accounts and guests -->
         <div id="settings-google-info" style="display:none;margin-bottom:.85rem;"></div>
-        <div class="form-group">
+        <!-- Worker URL — hidden for guests -->
+        <div id="settings-worker-group" class="form-group">
           <label class="form-label">Worker URL</label>
           <input class="input" id="p-worker-url" placeholder="https://reverence.yourname.workers.dev"/>
           <div class="form-hint">Deploy <code style="font-family:monospace;font-size:.8em;color:var(--gold2);">worker.js</code> to Cloudflare Workers and paste the URL here. Leave blank to use local storage only.</div>
         </div>
-        <div class="row sb mt-8" style="align-items:center;flex-wrap:wrap;gap:.5rem;">
+        <!-- Sync controls — hidden for guests -->
+        <div id="settings-sync-controls" class="row sb mt-8" style="align-items:center;flex-wrap:wrap;gap:.5rem;">
           <span id="sync-indicator" class="sync-indicator sync-idle">☁️ Not synced</span>
           <div class="row gap-8">
             <button class="btn btn-ghost btn-sm" id="btn-switch-account">Switch Account</button>
