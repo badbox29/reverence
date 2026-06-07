@@ -1796,16 +1796,15 @@ document.getElementById('btn-switch-account').addEventListener('click', ()=>{
 });
 
 // Use event delegation on the settings modal for dynamically-shown buttons.
-// Static getElementById listeners fail in some browsers (Edge) when the
-// element is inside a hidden modal and not yet in the active DOM at wire-up.
+// Calls are deferred with setTimeout to ensure they run fully outside the
+// click event handler — prevents Edge/Firefox from swallowing the second
+// call when closeModal mutates the DOM mid-propagation.
 document.getElementById('modal-settings').addEventListener('click', e => {
   if(e.target.closest('#btn-guest-create-account')) {
-    closeModal('modal-settings');
-    showSetupFresh();
+    setTimeout(() => { closeModal('modal-settings'); showSetupFresh(); }, 0);
   }
   if(e.target.closest('#btn-upgrade-to-google')) {
-    closeModal('modal-settings');
-    showGoogleUpgradeFlow();
+    setTimeout(() => { closeModal('modal-settings'); showGoogleUpgradeFlow(); }, 0);
   }
 });
 
