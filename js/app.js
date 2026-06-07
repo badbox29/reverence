@@ -725,21 +725,27 @@ function renderFeed() {
     const season=D.seasons.find(s=>s.id===e.seasonId);
     const cls=season?.classes?.find(c=>c.id===e.classId);
     const styleKey=e.style.toLowerCase().replace(/[\s-]+/g,'-');
+    const moodEmoji=e.mood?.split(' ')[0]||'';
+    // Fallback voice line when no notes
+    const voiceLine=e.notes
+      ? `<div class="entry-card-voice">"${esc(e.notes)}"</div>`
+      : `<div class="entry-card-voice entry-card-voice--quiet">${esc(e.style)} · ${esc(e.mood||'')}</div>`;
     return `
     <article class="entry-card style-${styleKey}" onclick="openEntry('${e.id}')">
       <div class="entry-card-header">
-        <div class="entry-card-title">${esc(e.title||e.style)}</div>
+        <div class="entry-card-title">
+          ${esc(e.title||e.style)}
+          ${moodEmoji?`<span class="entry-mood-emoji">${moodEmoji}</span>`:''}
+        </div>
         <div class="entry-card-date">${fmtDateShort(e.date)}</div>
       </div>
+      ${voiceLine}
       <div class="entry-card-meta">
-        <span class="tag tag-style">${esc(e.style)}</span>
-        ${e.mood?`<span class="tag tag-mood">${esc(e.mood)}</span>`:''}
         <span class="tag tag-season">${e.duration}min</span>
         ${season?`<span class="tag tag-season">${esc(season.name)}</span>`:''}
         ${cls?`<span class="tag tag-class">${esc(cls.name)}</span>`:''}
         ${season?.archived?'<span class="tag tag-archived">🔒</span>':''}
       </div>
-      ${e.notes?`<div class="entry-card-excerpt">${esc(e.notes)}</div>`:''}
     </article>`;
   }).join('');
 
