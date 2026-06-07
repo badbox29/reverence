@@ -37,10 +37,10 @@
 body.light {
   /* Medium-depth warm earth tones — dark header stays dark */
   --ink:    #c8b898;   /* page bg — gold-warm tan */
-  --ink2:   #d8cdb0;   /* card surface — stationery layer, just above bg */
-  --ink3:   #cdc09e;   /* inner card / input — one step deeper than card */
-  --ink4:   #b8a880;   /* dividers, progress tracks */
-  --ink5:   #a09068;   /* stronger borders */
+  --ink2:   #e8dfc8;   /* card surface — midpoint stationery, lighter but warm */
+  --ink3:   #ddd4b8;   /* inner card / input — one step deeper than card */
+  --ink4:   #c0b490;   /* dividers, progress tracks */
+  --ink5:   #a89870;   /* stronger borders */
   --muted:  #7a6a50;   /* muted labels */
   --muted2: #4a3a22;   /* secondary text */
   --cream:  #1a1410;   /* primary text — warm near-black */
