@@ -755,6 +755,7 @@ body.light .event-card-title { color: var(--cream); }
 }
 .auth-badge-token  { color: var(--gold2);  border-color: rgba(184,152,90,.35);  background: rgba(184,152,90,.1); }
 .auth-badge-google { color: #7ab4f5;       border-color: rgba(122,180,245,.35); background: rgba(122,180,245,.08); }
+.auth-badge-guest  { color: var(--muted2); border-color: var(--border2);        background: var(--ink3); }
 
 /* ── Google sign-in button ─────────────────────────────────────── */
 .btn-google {
