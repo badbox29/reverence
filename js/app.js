@@ -1499,6 +1499,74 @@ document.getElementById('btn-submit-injury').addEventListener('click',()=>{
   toast('Injury logged 🩹');
 });
 
+// ── Mobile menu ──────────────────────────────────────────────────
+(function() {
+  const menuBtn  = document.getElementById('btn-mobile-menu');
+  const menuEl   = document.getElementById('mobile-menu');
+
+  function toggleMenu() {
+    const open = menuEl.classList.toggle('open');
+    menuBtn.setAttribute('aria-expanded', open);
+    menuEl.setAttribute('aria-hidden', !open);
+    // Swap hamburger ↔ X
+    menuBtn.innerHTML = open
+      ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+      : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
+  }
+
+  function closeMenu() {
+    if(!menuEl.classList.contains('open')) return;
+    menuEl.classList.remove('open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+    menuEl.setAttribute('aria-hidden', 'true');
+    menuBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
+  }
+
+  menuBtn.addEventListener('click', e => { e.stopPropagation(); toggleMenu(); });
+
+  // Close on outside click
+  document.addEventListener('click', e => {
+    if(!menuEl.contains(e.target) && e.target !== menuBtn) closeMenu();
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', e => { if(e.key==='Escape') closeMenu(); });
+
+  // Wire mobile menu items — each fires the same action as its desktop twin
+  // then closes the menu
+  function mobAction(mobId, desktopId) {
+    const mob = document.getElementById(mobId);
+    const desk = document.getElementById(desktopId);
+    if(mob && desk) {
+      mob.addEventListener('click', () => {
+        closeMenu();
+        // Small delay so menu close animation completes before modal opens
+        setTimeout(() => desk.click(), 80);
+      });
+    }
+  }
+
+  mobAction('mob-log-session', 'btn-log-session');
+  mobAction('mob-events',      'btn-events');
+  mobAction('mob-schedule',    'btn-schedule');
+  mobAction('mob-skills',      'btn-skills');
+  mobAction('mob-pointe',      'btn-pointe');
+  mobAction('mob-injuries',    'btn-injuries');
+  mobAction('mob-journey',     'btn-journey');
+  mobAction('mob-settings',    'btn-settings');
+
+  // Keep mob-pointe visibility in sync with desktop btn-pointe
+  const origUpdatePointe = window.updatePointeButton;
+  window.updatePointeButton = function() {
+    if(origUpdatePointe) origUpdatePointe();
+    const mobPointe = document.getElementById('mob-pointe');
+    const deskPointe = document.getElementById('btn-pointe');
+    if(mobPointe && deskPointe) {
+      mobPointe.style.display = deskPointe.style.display;
+    }
+  };
+})();
+
 // ── Boot ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   const stored = KV.get('appdata');
