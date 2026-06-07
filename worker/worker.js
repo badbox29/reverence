@@ -60,23 +60,66 @@ const RATE_KEY_TTL = RATE_WINDOW_SECONDS * 2; // KV TTL for rate limit entries
 // The worker uses it to verify ID tokens issued by Google.
 const GOOGLE_CLIENT_ID = '816310286560-4tgoor67vdu5jh65nlul0lr78rkrc5bc.apps.googleusercontent.com';
 
-// ── Google JWT verification (stub) ───────────────────────────────
-// Verifies a Google ID token by checking the signature against
-// Google's public keys and validating aud, iss, and exp claims.
-// STUB: returns null until GOOGLE_CLIENT_ID is set and implementation
-// is complete. Safe to call — callers check for null return.
+// ── Google JWT verification ───────────────────────────────────────
+// Verifies a Google ID token by fetching Google's public JWKS, finding
+// the matching key by kid, and verifying the RS256 signature.
+// Validates aud, iss, and exp claims. Returns decoded payload on success,
+// null on any failure. Safe to call — all errors return null.
 async function verifyGoogleJWT(idToken) {
-  if(!GOOGLE_CLIENT_ID) {
-    console.warn('[Auth] verifyGoogleJWT called but GOOGLE_CLIENT_ID not set.');
+  if(!GOOGLE_CLIENT_ID) return null;
+  try {
+    // 1. Decode header and payload (no verification yet)
+    const parts = idToken.split('.');
+    if(parts.length !== 3) return null;
+
+    const header  = JSON.parse(atob(parts[0].replace(/-/g,'+').replace(/_/g,'/')));
+    const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+
+    // 2. Validate standard claims before touching crypto
+    const now = Math.floor(Date.now() / 1000);
+    if(payload.exp < now)                                          return null; // expired
+    if(payload.aud !== GOOGLE_CLIENT_ID)                           return null; // wrong audience
+    if(!['accounts.google.com','https://accounts.google.com']
+        .includes(payload.iss))                                    return null; // wrong issuer
+    if(!payload.sub)                                               return null; // no subject
+
+    // 3. Fetch Google's public keys and find the matching key by kid
+    const jwksRes = await fetch('https://www.googleapis.com/oauth2/v3/certs');
+    if(!jwksRes.ok) return null;
+    const jwks = await jwksRes.json();
+    const jwk  = jwks.keys?.find(k => k.kid === header.kid);
+    if(!jwk) return null;
+
+    // 4. Import the JWK as a CryptoKey for RS256 verification
+    const cryptoKey = await crypto.subtle.importKey(
+      'jwk', jwk,
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+
+    // 5. Verify the signature
+    const signingInput = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+    const signature    = Uint8Array.from(
+      atob(parts[2].replace(/-/g,'+').replace(/_/g,'/')),
+      c => c.charCodeAt(0)
+    );
+    const valid = await crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5', cryptoKey, signature, signingInput
+    );
+    if(!valid) return null;
+
+    // 6. Return the verified payload
+    return {
+      sub:     payload.sub,
+      email:   payload.email   || null,
+      name:    payload.name    || null,
+      picture: payload.picture || null,
+    };
+  } catch(err) {
+    console.error('[Auth] verifyGoogleJWT error:', err);
     return null;
   }
-  // TODO: fetch https://www.googleapis.com/oauth2/v3/certs
-  // Decode JWT header to get kid, find matching key, verify RS256 signature.
-  // Validate: aud === GOOGLE_CLIENT_ID, iss in ['accounts.google.com',
-  // 'https://accounts.google.com'], exp > Date.now()/1000.
-  // Return decoded payload { sub, email, name, picture } on success, null on failure.
-  console.log('[Auth] verifyGoogleJWT() stub called — not yet implemented.');
-  return null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -104,8 +147,8 @@ function respondText(body, status = 200, extraHeaders = {}) {
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin':  origin,
-    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Vary': 'Origin',
   };
 }
@@ -162,38 +205,123 @@ export default {
         return respond(JSON.stringify({ ok: true, service: 'Reverence KV' }), 200, cors);
       }
 
-      // ── Auth routes (Google OAuth — stub, not yet implemented) ────
+      // ── Auth routes (Google OAuth) ────────────────────────────────
       // POST /auth/google  — verify Google ID token, return KV key (sub)
-      // POST /auth/verify  — verify an existing Google session is still valid
-      // POST /auth/migrate — migrate a token account to Google (10-min TTL flow)
+      // POST /auth/verify  — re-verify a stored Google credential
+      // POST /auth/migrate — one-way token→Google migration
       if(url.pathname === '/auth/google') {
         if(method !== 'POST') return respondText('Method not allowed', 405, cors);
-        if(!GOOGLE_CLIENT_ID) {
-          return respond(JSON.stringify({ error: 'Google auth not configured' }), 501, cors);
+
+        let idToken;
+        try {
+          const body = await request.json();
+          idToken = body.idToken;
+        } catch {
+          return respond(JSON.stringify({ error: 'Invalid request body' }), 400, cors);
         }
-        // TODO: read idToken from request body, call verifyGoogleJWT(),
-        // derive KV key from sub claim, return { ok, kvKey } to app.
-        return respond(JSON.stringify({ error: 'Not implemented' }), 501, cors);
+        if(!idToken) return respond(JSON.stringify({ error: 'idToken required' }), 400, cors);
+
+        const payload = await verifyGoogleJWT(idToken);
+        if(!payload) {
+          return respond(JSON.stringify({ error: 'Invalid or expired Google token' }), 401, cors);
+        }
+
+        // KV key for Google accounts: "google:<sub>"
+        // sub is Google's stable, permanent user ID — never changes, never reused.
+        const kvKey = `google:${payload.sub}`;
+
+        return respond(JSON.stringify({
+          ok:      true,
+          kvKey,
+          profile: payload,
+        }), 200, cors);
       }
 
       if(url.pathname === '/auth/verify') {
         if(method !== 'POST') return respondText('Method not allowed', 405, cors);
-        if(!GOOGLE_CLIENT_ID) {
-          return respond(JSON.stringify({ error: 'Google auth not configured' }), 501, cors);
+
+        let idToken;
+        try {
+          const body = await request.json();
+          idToken = body.idToken;
+        } catch {
+          return respond(JSON.stringify({ error: 'Invalid request body' }), 400, cors);
         }
-        // TODO: verify the stored credential is still valid (not expired).
-        return respond(JSON.stringify({ error: 'Not implemented' }), 501, cors);
+        if(!idToken) return respond(JSON.stringify({ error: 'idToken required' }), 400, cors);
+
+        const payload = await verifyGoogleJWT(idToken);
+        if(!payload) {
+          return respond(JSON.stringify({ ok: false, error: 'Token expired or invalid' }), 401, cors);
+        }
+        return respond(JSON.stringify({ ok: true, profile: payload }), 200, cors);
       }
 
       if(url.pathname === '/auth/migrate') {
         if(method !== 'POST') return respondText('Method not allowed', 405, cors);
-        if(!GOOGLE_CLIENT_ID) {
-          return respond(JSON.stringify({ error: 'Google auth not configured' }), 501, cors);
+
+        let body;
+        try { body = await request.json(); } catch {
+          return respond(JSON.stringify({ error: 'Invalid request body' }), 400, cors);
         }
-        // TODO: implement one-way token→Google migration flow.
-        // Verify token ownership + Google JWT, copy data atomically,
-        // invalidate old token, write migration record.
-        return respond(JSON.stringify({ error: 'Not implemented' }), 501, cors);
+
+        const { idToken, oldToken, migrationCode } = body || {};
+        if(!idToken || !oldToken) {
+          return respond(JSON.stringify({ error: 'idToken and oldToken required' }), 400, cors);
+        }
+
+        // Validate old token format
+        if(!/^[a-zA-Z0-9_-]{8,128}$/.test(oldToken)) {
+          return respond(JSON.stringify({ error: 'Invalid token format' }), 400, cors);
+        }
+
+        // Verify Google JWT
+        const payload = await verifyGoogleJWT(idToken);
+        if(!payload) {
+          return respond(JSON.stringify({ error: 'Invalid or expired Google token' }), 401, cors);
+        }
+
+        // Verify migration code if provided (10-min TTL, stored as "migcode:<oldToken>")
+        if(migrationCode) {
+          const storedCode = await env.REVERENCE_KV.get(`migcode:${oldToken}`, { type: 'text' });
+          if(!storedCode || storedCode !== migrationCode) {
+            return respond(JSON.stringify({ error: 'Invalid or expired migration code' }), 401, cors);
+          }
+        }
+
+        // Fetch existing token data
+        const existingData = await env.REVERENCE_KV.get(oldToken, { type: 'text' });
+        if(!existingData) {
+          return respond(JSON.stringify({ error: 'Source account not found' }), 404, cors);
+        }
+
+        // Parse, update authMethod, write to new Google KV key
+        const kvKey = `google:${payload.sub}`;
+        let parsed;
+        try { parsed = JSON.parse(existingData); } catch {
+          return respond(JSON.stringify({ error: 'Corrupt source data' }), 500, cors);
+        }
+
+        parsed.authMethod   = 'google';
+        parsed.linkedGoogle = payload;
+        parsed.lastModified = Date.now();
+
+        // Atomic-ish: write new key first, then tombstone old key
+        await env.REVERENCE_KV.put(kvKey, JSON.stringify(parsed), {
+          expirationTtl: 60 * 60 * 24 * 365,
+        });
+
+        // Tombstone old token — write a migration record so any remaining
+        // devices using the old token get a clear "migrated" response
+        await env.REVERENCE_KV.put(`migrated:${oldToken}`, kvKey, {
+          expirationTtl: 60 * 60 * 24 * 90, // 90 days
+        });
+
+        // Clean up migration code if used
+        if(migrationCode) {
+          await env.REVERENCE_KV.delete(`migcode:${oldToken}`);
+        }
+
+        return respond(JSON.stringify({ ok: true, kvKey, profile: payload }), 200, cors);
       }
 
       // ── Route: /kv/:token ─────────────────────────────────────────
@@ -224,6 +352,17 @@ export default {
             'Retry-After': String(RATE_WINDOW_SECONDS),
             'X-RateLimit-Limit':     String(MAX_REQUESTS_PER_WINDOW),
             'X-RateLimit-Remaining': '0',
+          });
+        }
+
+        // ── Migration tombstone check ─────────────────────────────
+        // If this token account was migrated to Google auth, return a
+        // clear signal so the app can prompt the user to sign in with Google.
+        const migratedTo = await env.REVERENCE_KV.get(`migrated:${token}`, { type: 'text' });
+        if(migratedTo) {
+          return respond(JSON.stringify({ migrated: true, authMethod: 'google' }), 410, {
+            ...cors,
+            'X-Account-Migrated': 'google',
           });
         }
 
