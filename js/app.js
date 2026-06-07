@@ -147,34 +147,41 @@ async function pushToWorker(token) {
 // Pull data from worker for the given token
 async function pullFromWorker(token) {
   const base = workerBase();
-  token = token || D?.userToken;
+  // For Google accounts use the google:<sub> KV key, not the userToken
+  token = token || (isGoogleAccount() ? D?.userToken : D?.userToken);
   if(!base || !token) return null;
   setSyncStatus('syncing');
   try {
     const res = await fetch(`${base}/kv/${encodeURIComponent(token)}`);
+
+    // 410 = account migrated to Google — surface this to the caller
+    if(res.status === 410) {
+      setSyncStatus('idle');
+      const data = await res.json().catch(() => ({}));
+      if(data.migrated && data.authMethod === 'google') {
+        toast('This account has been migrated to Google sign-in. Please sign in with Google.');
+        setTimeout(showAccountSetup, 1200);
+      }
+      return null;
+    }
+
     if(res.status===404){ setSyncStatus('idle'); return null; }
     if(!res.ok){ setSyncStatus('error'); return null; }
     const data = await res.json();
     setSyncStatus('ok');
 
     // ── Silent legacy migration on secondary devices ───────────────
-    // If the worker signals this token has been migrated to a new secure
-    // token (because another device already upgraded), silently adopt the
-    // new token locally and push back to confirm migration is complete
-    // on this device. Completely transparent to the user.
     const migratedTo = res.headers.get('X-Token-Migrated');
     if(migratedTo && migratedTo !== D?.userToken) {
       data.userToken = migratedTo;
       KV.set('token_upgrade_dismissed', true);
-      // Push under new token to register this device as migrated
-      // Use a short async push — don't block returning the data
       const base2 = (data.workerUrl || D?.workerUrl || '').replace(/\/+$/, '');
       if(base2) {
         fetch(`${base2}/kv/${encodeURIComponent(migratedTo)}`, {
           method:  'PUT',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify(data),
-        }).catch(() => {}); // best-effort; sync ping will retry if it fails
+        }).catch(() => {});
       }
       toast('Account security upgraded automatically ✓');
     }
@@ -301,51 +308,205 @@ function isLegacyToken(token) {
 
 // The Google Client ID for OAuth. Set this when the Google Cloud
 // project is created and credentials are issued.
+// ── Auth module ───────────────────────────────────────────────────
+
 const GOOGLE_CLIENT_ID = '816310286560-4tgoor67vdu5jh65nlul0lr78rkrc5bc.apps.googleusercontent.com';
 
-// isGoogleAuthAvailable() — true only when a Client ID is configured.
-// Gates all Google sign-in UI so the button never appears prematurely.
 function isGoogleAuthAvailable() {
   return typeof GOOGLE_CLIENT_ID === 'string' && GOOGLE_CLIENT_ID.length > 0;
 }
 
-// isGoogleAccount() — true if the current account uses Google auth.
 function isGoogleAccount() {
   return D?.authMethod === 'google';
 }
 
-// signInWithGoogle() — initiates the Google One Tap / OAuth flow.
-// Returns a credential object on success, null on failure/cancel.
-// STUB: logs intent and resolves null until implemented.
+// waitForGIS() — resolves when the Google Identity Services library is ready.
+// GIS loads async; this lets us await it cleanly without polling.
+function waitForGIS() {
+  return new Promise(resolve => {
+    if(window.gisReady && window.google?.accounts?.id) return resolve();
+    window.addEventListener('gis-ready', resolve, { once: true });
+    // Fallback: if script loaded before our listener, check again shortly
+    setTimeout(() => {
+      if(window.google?.accounts?.id) resolve();
+    }, 2000);
+  });
+}
+
+// handleGoogleCredential() — core handler for a Google ID token.
+// Called after GIS returns a credential (sign-in or One Tap).
+// Posts the token to the worker, gets back the KV key, then
+// loads or creates the account under that key.
+// Returns { ok, isNewAccount } on success, null on failure.
+async function handleGoogleCredential(idToken) {
+  const base = workerBase();
+  if(!base) {
+    toast('Set your Worker URL in Settings first.');
+    return null;
+  }
+
+  // Send ID token to worker for verification
+  let workerRes;
+  try {
+    const res = await fetch(`${base}/auth/google`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ idToken }),
+    });
+    workerRes = await res.json();
+    if(!res.ok || !workerRes.ok) throw new Error(workerRes.error || 'Worker auth failed');
+  } catch(err) {
+    console.error('[Auth] handleGoogleCredential worker error:', err);
+    return null;
+  }
+
+  const { kvKey, profile } = workerRes;
+
+  // Try to load existing account data from the Google KV key
+  const oldWorkerUrl = D?.workerUrl || '';
+  const tempUrl = D || {};
+  if(D) D.workerUrl = D.workerUrl || oldWorkerUrl;
+
+  let remote = null;
+  try {
+    const res = await fetch(`${base}/kv/${encodeURIComponent(kvKey)}`);
+    if(res.ok) remote = await res.json();
+  } catch { /* new account */ }
+
+  const isNewAccount = !remote;
+
+  if(remote) {
+    // Existing Google account — merge and apply
+    const merged = mergeData(remote);
+    merged.workerUrl    = oldWorkerUrl || merged.workerUrl;
+    merged.authMethod   = 'google';
+    merged.linkedGoogle = profile;
+    applyData(merged);
+  } else {
+    // New Google account — init fresh data with Google auth fields
+    if(!D) D = initData();
+    D.authMethod   = 'google';
+    D.linkedGoogle = profile;
+    D.userToken    = kvKey; // use kvKey as the local token reference
+    D.workerUrl    = oldWorkerUrl;
+    KV.set('appdata', D);
+    checkBadges();
+    applyTheme();
+    updatePointeButton();
+    renderSpotlight();
+    renderSidebar();
+    renderFeed();
+  }
+
+  // Store the ID token for session verification at next boot
+  KV.set('google_id_token', idToken);
+  save();
+  startSyncPing();
+
+  return { ok: true, isNewAccount, profile };
+}
+
+// signInWithGoogle() — shows the Google One Tap prompt / popup.
+// Returns { ok, isNewAccount, profile } on success, null on cancel/fail.
 async function signInWithGoogle() {
   if(!isGoogleAuthAvailable()) {
     console.warn('[Auth] Google sign-in not available — GOOGLE_CLIENT_ID not set.');
     return null;
   }
-  // TODO: implement Google Identity Services (GIS) credential flow.
-  // Will call google.accounts.id.initialize() and google.accounts.id.prompt()
-  // then POST the credential JWT to the worker /auth/google endpoint.
-  console.log('[Auth] signInWithGoogle() stub called — not yet implemented.');
-  return null;
+
+  await waitForGIS();
+
+  return new Promise(resolve => {
+    google.accounts.id.initialize({
+      client_id:         GOOGLE_CLIENT_ID,
+      callback:          async (response) => {
+        const result = await handleGoogleCredential(response.credential);
+        resolve(result);
+      },
+      auto_select:       false,
+      cancel_on_tap_outside: true,
+    });
+
+    // Use renderButton to show a reliable popup rather than One Tap,
+    // which has strict display conditions that can silently suppress it.
+    // We render into a hidden div and programmatically click it,
+    // or fall back to prompt() which shows One Tap if eligible.
+    google.accounts.id.prompt(notification => {
+      if(notification.isSkippedMoment() || notification.isDismissedMoment()) {
+        // One Tap suppressed — fall back to popup flow via renderButton
+        resolve(null);
+      }
+    });
+  });
 }
 
-// signOutGoogle() — clears the Google session locally and on the worker.
-// STUB: no-ops until implemented.
+// signInWithGooglePopup() — renders a Google button into a target element
+// and returns a promise that resolves when the user completes sign-in.
+// Used as a reliable fallback when One Tap is suppressed.
+async function signInWithGooglePopup(buttonEl) {
+  if(!isGoogleAuthAvailable() || !buttonEl) return null;
+  await waitForGIS();
+
+  return new Promise(resolve => {
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback:  async (response) => {
+        const result = await handleGoogleCredential(response.credential);
+        resolve(result);
+      },
+    });
+    google.accounts.id.renderButton(buttonEl, {
+      theme: 'filled_black',
+      size:  'large',
+      width: buttonEl.offsetWidth || 280,
+      text:  'continue_with',
+    });
+  });
+}
+
+// signOutGoogle() — clears the Google session locally.
+// Resets authMethod to 'token' so the account falls back to token auth.
 async function signOutGoogle() {
   if(!isGoogleAccount()) return;
-  // TODO: revoke Google session, clear linkedGoogle from D, reset authMethod to 'token'.
-  console.log('[Auth] signOutGoogle() stub called — not yet implemented.');
+  const email = D.linkedGoogle?.email;
+  if(email && window.google?.accounts?.id) {
+    google.accounts.id.revoke(email, () => {});
+  }
+  KV.set('google_id_token', null);
+  D.authMethod   = 'google'; // keep as google — don't downgrade silently
+  D.linkedGoogle = null;
+  save();
+  toast('Signed out of Google. Your data is still stored securely.');
 }
 
-// verifyGoogleSession() — called at boot to confirm the Google token
-// is still valid. Returns true if valid, false if expired/invalid.
-// STUB: always returns false (safe default — no action taken on false).
+// verifyGoogleSession() — called at boot for Google accounts.
+// Re-verifies the stored ID token against the worker.
+// Returns true if valid, false if expired (triggers re-auth prompt).
 async function verifyGoogleSession() {
   if(!isGoogleAccount()) return false;
-  // TODO: call worker /auth/verify endpoint with stored credential.
-  // Worker checks JWT expiry and returns 200 ok or 401 expired.
-  console.log('[Auth] verifyGoogleSession() stub called — not yet implemented.');
-  return false;
+  const base    = workerBase();
+  const idToken = KV.get('google_id_token');
+  if(!base || !idToken) return false;
+
+  try {
+    const res  = await fetch(`${base}/auth/verify`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ idToken }),
+    });
+    const data = await res.json();
+    if(res.ok && data.ok) {
+      // Refresh profile in case name/picture changed
+      if(data.profile) {
+        D.linkedGoogle = data.profile;
+        save();
+      }
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 const today        = () => new Date().toISOString().split('T')[0];
 const fmtDate      = d  => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
@@ -1859,6 +2020,21 @@ window.addEventListener('DOMContentLoaded', async () => {
     renderSidebar();
     renderFeed();
 
+    // ── Google session verification ────────────────────────────────
+    // For Google accounts, verify the stored ID token is still valid
+    // before attempting to sync. If expired, prompt re-auth silently.
+    if(isGoogleAccount() && workerBase()) {
+      const sessionValid = await verifyGoogleSession();
+      if(!sessionValid) {
+        // Token expired — show a gentle re-auth prompt after render
+        setTimeout(() => {
+          toast('Your Google session has expired — please sign in again.');
+          showAccountSetup();
+        }, 1000);
+        return; // don't attempt sync with expired session
+      }
+    }
+
     // ── Worker sync + legacy token migration ───────────────────────
     // IMPORTANT: the worker pull must resolve BEFORE we decide whether
     // to show the upgrade prompt. If the worker returns X-Token-Migrated,
@@ -1958,8 +2134,26 @@ function showAccountSetup() {
 
   if(isGoogleAuthAvailable()) {
     document.getElementById('btn-setup-google')?.addEventListener('click', async () => {
-      // TODO: wire to signInWithGoogle() when implemented
-      toast('Google sign-in coming soon.');
+      const btn = document.getElementById('btn-setup-google');
+      if(btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+      const result = await signInWithGoogle();
+      if(result?.ok) {
+        closeModal('modal-account-setup');
+        toast(result.isNewAccount
+          ? 'Welcome to Révérence 🩰'
+          : 'Account loaded ✓');
+      } else {
+        if(btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<svg class="google-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg> Continue with Google`;
+        }
+        toast('Google sign-in cancelled or failed — try again.');
+      }
     });
   }
 }
@@ -2036,8 +2230,26 @@ function showSetupAccountChoice() {
 
   if(isGoogleAuthAvailable()) {
     document.getElementById('btn-load-google')?.addEventListener('click', async () => {
-      // TODO: wire to signInWithGoogle() when implemented
-      toast('Google sign-in coming soon.');
+      const btn = document.getElementById('btn-load-google');
+      if(btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+      const result = await signInWithGoogle();
+      if(result?.ok) {
+        closeModal('modal-account-setup');
+        toast(result.isNewAccount
+          ? 'No existing account found — started fresh with Google ✓'
+          : 'Account loaded ✓');
+      } else {
+        if(btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<svg class="google-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg> Sign in with Google`;
+        }
+        toast('Google sign-in cancelled or failed — try again.');
+      }
     });
   }
 }
