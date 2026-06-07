@@ -2122,6 +2122,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 function setupScreen(title, html) {
   document.getElementById('account-setup-title').textContent = title;
   document.getElementById('account-setup-body').innerHTML = html;
+  openModal('modal-account-setup');
 }
 
 // Helper: test worker URL connectivity. Returns true if reachable.
