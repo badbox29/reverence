@@ -1366,8 +1366,8 @@ body.light .mobile-menu .mobile-menu-events:hover  { background: rgba(184,152,90
 
 /* Spotlight stays dark — hero element, keeps its drama */
 body.light .spotlight {
-  background:   #161c27;
-  border-color: rgba(184,152,90,.28);
+  background:   #2a2318;
+  border-color: rgba(184,152,90,.32);
 }
 body.light .spotlight .spotlight-label   { color: #d4b97a; }
 body.light .spotlight .spotlight-frame   { color: #d4b97a; }
