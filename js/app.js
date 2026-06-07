@@ -611,14 +611,21 @@ function getSpotlightEntry() {
     const styleFirsts = {};
     sorted.forEach(e=>{ if(!styleFirsts[e.style]) styleFirsts[e.style]=e; });
 
-    // Entry closest before a logged event
+    // Entry closest before a logged event — within 14 days only
     let preEventEntry = null;
     D.events.forEach(ev=>{
       const before = pastEntries
-        .filter(e=>e.date<ev.date)
+        .filter(e=>{
+          if(e.date >= ev.date) return false;
+          const daysApart = Math.round(
+            (new Date(ev.date+'T12:00:00') - new Date(e.date+'T12:00:00')) / 86400000
+          );
+          return daysApart <= 14;
+        })
         .sort((a,b)=>b.date.localeCompare(a.date))[0];
       if(before && (!preEventEntry || before.date > preEventEntry.date)) {
-        preEventEntry = { entry: before, eventName: ev.name };
+        const evYear = ev.date.slice(0,4);
+        preEventEntry = { entry: before, eventName: ev.name, eventYear: evYear };
       }
     });
 
@@ -626,7 +633,7 @@ function getSpotlightEntry() {
     const milestones = [
       { entry: firstEntry, frame: 'Your very first session…' },
       ...Object.entries(styleFirsts).map(([style,e])=>({ entry:e, frame:`Your first ${style} session…` })),
-      ...(preEventEntry ? [{ entry: preEventEntry.entry, frame:`Just before "${esc(preEventEntry.eventName)}"…` }] : []),
+      ...(preEventEntry ? [{ entry: preEventEntry.entry, frame:`Just before "${esc(preEventEntry.eventName)}" · ${preEventEntry.eventYear}…` }] : []),
     ].filter(m=>m.entry);
 
     // Deterministically pick based on today's date so it's stable all day
@@ -1472,6 +1479,9 @@ document.getElementById('btn-submit-injury').addEventListener('click',()=>{
 // ── Boot ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   const stored = KV.get('appdata');
+
+  // Clear spotlight cache so any logic changes take effect immediately
+  KV.set('spotlight_cache', null);
 
   if(stored) {
     // Existing local data — merge and render immediately
