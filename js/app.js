@@ -199,7 +199,10 @@ function mergeData(raw) {
   if(!merged.pointeLog)                      merged.pointeLog={readiness:{},shoes:[],conditioning:{}};
   if(!Array.isArray(merged.pointeLog.shoes)) merged.pointeLog.shoes=[];
   if(typeof merged.showPointe==='undefined') merged.showPointe=false;
-  if(typeof merged.workerUrl==='undefined')  merged.workerUrl='';
+  if(typeof merged.workerUrl==='undefined')    merged.workerUrl='';
+  if(typeof merged.authMethod==='undefined')   merged.authMethod='token';
+  if(typeof merged.linkedGoogle==='undefined') merged.linkedGoogle=null;
+  if(typeof merged.createdAt==='undefined')    merged.createdAt=Date.now();
   if(typeof merged.lastModified==='undefined') merged.lastModified=0;
   // Migrate existing skills to include history array
   Object.keys(merged.skills||{}).forEach(style=>{
@@ -289,6 +292,61 @@ function generateToken() {
 function isLegacyToken(token) {
   return typeof token === 'string' && token.length <= 16;
 }
+
+// ── Auth module (framework — Google OAuth not yet wired) ──────────
+// These stubs define the interface the full implementation will use.
+// Each function is safe to call now and will no-op or return false
+// until the Google Client ID is configured and the implementation
+// is complete. This keeps the rest of the app auth-aware from day one.
+
+// The Google Client ID for OAuth. Set this when the Google Cloud
+// project is created and credentials are issued.
+const GOOGLE_CLIENT_ID = null; // e.g. '123456789.apps.googleusercontent.com'
+
+// isGoogleAuthAvailable() — true only when a Client ID is configured.
+// Gates all Google sign-in UI so the button never appears prematurely.
+function isGoogleAuthAvailable() {
+  return typeof GOOGLE_CLIENT_ID === 'string' && GOOGLE_CLIENT_ID.length > 0;
+}
+
+// isGoogleAccount() — true if the current account uses Google auth.
+function isGoogleAccount() {
+  return D?.authMethod === 'google';
+}
+
+// signInWithGoogle() — initiates the Google One Tap / OAuth flow.
+// Returns a credential object on success, null on failure/cancel.
+// STUB: logs intent and resolves null until implemented.
+async function signInWithGoogle() {
+  if(!isGoogleAuthAvailable()) {
+    console.warn('[Auth] Google sign-in not available — GOOGLE_CLIENT_ID not set.');
+    return null;
+  }
+  // TODO: implement Google Identity Services (GIS) credential flow.
+  // Will call google.accounts.id.initialize() and google.accounts.id.prompt()
+  // then POST the credential JWT to the worker /auth/google endpoint.
+  console.log('[Auth] signInWithGoogle() stub called — not yet implemented.');
+  return null;
+}
+
+// signOutGoogle() — clears the Google session locally and on the worker.
+// STUB: no-ops until implemented.
+async function signOutGoogle() {
+  if(!isGoogleAccount()) return;
+  // TODO: revoke Google session, clear linkedGoogle from D, reset authMethod to 'token'.
+  console.log('[Auth] signOutGoogle() stub called — not yet implemented.');
+}
+
+// verifyGoogleSession() — called at boot to confirm the Google token
+// is still valid. Returns true if valid, false if expired/invalid.
+// STUB: always returns false (safe default — no action taken on false).
+async function verifyGoogleSession() {
+  if(!isGoogleAccount()) return false;
+  // TODO: call worker /auth/verify endpoint with stored credential.
+  // Worker checks JWT expiry and returns 200 ok or 401 expired.
+  console.log('[Auth] verifyGoogleSession() stub called — not yet implemented.');
+  return false;
+}
 const today        = () => new Date().toISOString().split('T')[0];
 const fmtDate      = d  => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 const fmtDateShort = d  => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
@@ -314,6 +372,14 @@ function initData() {
     userToken:    generateToken(),
     userName:     '',
     studioName:   '',
+    // ── Auth ──────────────────────────────────────────────────────
+    // authMethod: 'token' | 'google'
+    // linkedGoogle: null | { sub, email, name, picture }
+    // createdAt: unix ms timestamp of account creation
+    authMethod:   'token',
+    linkedGoogle: null,
+    createdAt:    Date.now(),
+    // ─────────────────────────────────────────────────────────────
     activeStyles: [...STYLES],
     showPointe:   false,
     seasons:      [],
@@ -1431,6 +1497,38 @@ function openSettingsModal() {
   document.getElementById('setting-pointe').checked = !!D.showPointe;
   document.getElementById('settings-styles-chips').innerHTML=
     STYLES.map(s=>`<span class="chip${D.activeStyles.includes(s)?' on':''}" onclick="this.classList.toggle('on')" data-style="${s}">${s}</span>`).join('');
+
+  // ── Auth method display ────────────────────────────────────────
+  // Show current auth method in the sync section. Token field is
+  // read-only for Google accounts (token is not their credential).
+  const authBadgeEl = document.getElementById('settings-auth-badge');
+  const tokenGroupEl = document.getElementById('settings-token-group');
+  const googleInfoEl = document.getElementById('settings-google-info');
+
+  if(isGoogleAccount()) {
+    if(authBadgeEl)  authBadgeEl.textContent  = 'Google Account';
+    if(authBadgeEl)  authBadgeEl.className    = 'auth-badge auth-badge-google';
+    if(tokenGroupEl) tokenGroupEl.style.display = 'none';
+    if(googleInfoEl) {
+      const g = D.linkedGoogle;
+      googleInfoEl.style.display = '';
+      googleInfoEl.innerHTML = g
+        ? `<div class="auth-google-info">
+             ${g.picture ? `<img src="${g.picture}" class="auth-google-avatar" alt="">` : ''}
+             <div>
+               <div class="f13 fw5" style="color:var(--cream);">${esc(g.name||'')}</div>
+               <div class="f12 muted">${esc(g.email||'')}</div>
+             </div>
+           </div>`
+        : '';
+    }
+  } else {
+    if(authBadgeEl)  authBadgeEl.textContent  = 'Token';
+    if(authBadgeEl)  authBadgeEl.className    = 'auth-badge auth-badge-token';
+    if(tokenGroupEl) tokenGroupEl.style.display = '';
+    if(googleInfoEl) googleInfoEl.style.display = 'none';
+  }
+
   openModal('modal-settings');
 }
 
@@ -1815,6 +1913,20 @@ window.addEventListener('DOMContentLoaded', async () => {
 function showAccountSetup() {
   // Step 1: Ask if they have an existing account
   document.getElementById('account-setup-title').textContent = 'Welcome to Révérence';
+
+  // Google sign-in option only shown when GOOGLE_CLIENT_ID is configured
+  const googleBtn = isGoogleAuthAvailable()
+    ? `<button class="btn btn-google w100" id="btn-setup-google" style="justify-content:center;">
+         <svg class="google-icon" viewBox="0 0 24 24" aria-hidden="true">
+           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+           <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+         </svg>
+         Continue with Google
+       </button>`
+    : '';
+
   document.getElementById('account-setup-body').innerHTML = `
     <p class="f13 lh muted" style="margin-bottom:1.5rem;">
       Do you already have a Révérence account on another device?
@@ -1826,11 +1938,12 @@ function showAccountSetup() {
       <button class="btn btn-ghost w100" id="btn-setup-new-account" style="justify-content:center;">
         No — start fresh
       </button>
+      ${googleBtn ? `<div class="auth-divider"><span>or</span></div>${googleBtn}` : ''}
     </div>
   `;
   openModal('modal-account-setup');
 
-  document.getElementById('btn-setup-has-account').addEventListener('click', showSetupTokenEntry);
+  document.getElementById('btn-setup-has-account').addEventListener('click', showSetupAccountChoice);
   document.getElementById('btn-setup-new-account').addEventListener('click', ()=>{
     closeModal('modal-account-setup');
     KV.set('appdata', D);
@@ -1842,10 +1955,33 @@ function showAccountSetup() {
     renderFeed();
     toast('Welcome to Révérence 🩰');
   });
+
+  if(isGoogleAuthAvailable()) {
+    document.getElementById('btn-setup-google')?.addEventListener('click', async () => {
+      // TODO: wire to signInWithGoogle() when implemented
+      toast('Google sign-in coming soon.');
+    });
+  }
 }
 
-function showSetupTokenEntry() {
+// showSetupAccountChoice — shown when user says they have an existing account.
+// Offers token entry or Google sign-in.
+function showSetupAccountChoice() {
   document.getElementById('account-setup-title').textContent = 'Load Existing Account';
+
+  const googleBtn = isGoogleAuthAvailable()
+    ? `<div class="auth-divider"><span>or</span></div>
+       <button class="btn btn-google w100" id="btn-load-google" style="justify-content:center;">
+         <svg class="google-icon" viewBox="0 0 24 24" aria-hidden="true">
+           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+           <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+         </svg>
+         Sign in with Google
+       </button>`
+    : '';
+
   document.getElementById('account-setup-body').innerHTML = `
     <p class="f13 lh muted" style="margin-bottom:1rem;">
       Enter your Worker URL and token from your other device.
@@ -1859,9 +1995,12 @@ function showSetupTokenEntry() {
       <input class="input input-mono" id="setup-token" placeholder="Paste your token here…"/>
     </div>
     <div id="setup-status" style="min-height:1.4rem;font-size:.82rem;color:var(--red);margin-bottom:.75rem;"></div>
-    <div class="form-actions">
-      <button class="btn btn-ghost" id="btn-setup-back">← Back</button>
-      <button class="btn btn-primary" id="btn-setup-load">Load Account</button>
+    <div class="form-actions" style="flex-direction:column;gap:.65rem;">
+      <div class="row gap-8 w100" style="justify-content:space-between;">
+        <button class="btn btn-ghost" id="btn-setup-back">← Back</button>
+        <button class="btn btn-primary" id="btn-setup-load">Load Account</button>
+      </div>
+      ${googleBtn}
     </div>
   `;
 
@@ -1877,7 +2016,6 @@ function showSetupTokenEntry() {
     statusEl.style.color='var(--gold2)';
     statusEl.textContent='Looking up account…';
 
-    // Temporarily set workerUrl so pullFromWorker works
     D.workerUrl = workerUrl;
     const remote = await pullFromWorker(token);
 
@@ -1895,6 +2033,13 @@ function showSetupTokenEntry() {
     startSyncPing();
     toast('Account loaded ✓');
   });
+
+  if(isGoogleAuthAvailable()) {
+    document.getElementById('btn-load-google')?.addEventListener('click', async () => {
+      // TODO: wire to signInWithGoogle() when implemented
+      toast('Google sign-in coming soon.');
+    });
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2276,7 +2421,7 @@ window.updateGoalProgress = updateGoalProgress;
 window.openModal          = openModal;
 window.cycleInjuryStatus  = cycleInjuryStatus;
 window.deleteInjury       = deleteInjury;
-window.showAccountSetup   = showAccountSetup;
-window.showSetupTokenEntry= showSetupTokenEntry;
+window.showAccountSetup      = showAccountSetup;
+window.showSetupAccountChoice= showSetupAccountChoice;
 window.editEntry          = editEntry;
 window.renderYearReview   = renderYearReview;
