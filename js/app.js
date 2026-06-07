@@ -130,7 +130,7 @@ async function pushToWorker(token) {
   if(!base || !token) return false;
   setSyncStatus('syncing');
   try {
-    const payload = { ...D, lastModified: Date.now() };
+    const payload = { ...D }; // D.lastModified already stamped by save()
     const res = await fetch(`${base}/kv/${encodeURIComponent(token)}`, {
       method:  'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -181,6 +181,10 @@ function mergeData(raw) {
   // Migrate existing skills to include history array
   Object.keys(merged.skills||{}).forEach(style=>{
     (merged.skills[style]||[]).forEach(sk=>{ if(!Array.isArray(sk.history)) sk.history=[]; });
+  });
+  // Migrate completed goals that are missing completedDate
+  (merged.goals||[]).forEach(g=>{
+    if(g.completed && !g.completedDate) g.completedDate = g.targetDate||'2000-01-01';
   });
   return merged;
 }
@@ -241,7 +245,7 @@ async function switchToToken(newToken) {
 }
 
 // ── Utilities ─────────────────────────────────────────────────────
-const uid          = () => Math.random().toString(36).slice(2,10);
+const uid          = () => Math.random().toString(36).slice(2,12).padEnd(10,'0');
 const today        = () => new Date().toISOString().split('T')[0];
 const fmtDate      = d  => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 const fmtDateShort = d  => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
@@ -254,7 +258,6 @@ let D              = null;
 let currentPage    = 1;
 let filterStyle    = 'all';
 let filterSeason   = 'all';
-let eventsFilter   = 'all';
 let schedView      = 'active';
 let expandedSeason = null;
 let skillsStyle    = null;
@@ -273,7 +276,7 @@ function initData() {
     seasons:      [],
     entries:      [],
     events:       [],
-    skills:       Object.fromEntries(STYLES.map(s=>[s,DEFAULT_SKILLS[s].map(n=>({id:uid(),name:n,level:0}))])),
+    skills:       Object.fromEntries(STYLES.map(s=>[s,DEFAULT_SKILLS[s].map(n=>({id:uid(),name:n,level:0,history:[]}))])),
     goals:        [],
     pointeLog:    { readiness:{}, shoes:[], conditioning:{} },
     badges:       [],
@@ -349,13 +352,12 @@ function checkBadges() {
   if(D.seasons.length >= 1) add('first_season');
   if(D.entries.some(e=>e.classId)) add('first_class');
 
-  // Season complete: any season where entries span the full date range
+  // Season complete: season end date has passed and has at least 5 logged entries
   D.seasons.forEach(s=>{
-    if(!s.startDate||!s.endDate) return;
+    if(!s.endDate) return;
+    if(s.endDate >= today()) return; // season not finished yet
     const seasonEntries = D.entries.filter(e=>e.seasonId===s.id);
-    if(!seasonEntries.length) return;
-    const dates = seasonEntries.map(e=>e.date).sort();
-    if(dates[0] <= s.startDate && dates[dates.length-1] >= s.endDate) add('season_complete');
+    if(seasonEntries.length >= 5) add('season_complete');
   });
 
   // ── Pointe ─────────────────────────────────────────────────────
@@ -942,7 +944,7 @@ function updateGoalProgress(id) {
   const pct=parseInt(prompt(`Progress for "${g.title}" (0–100%):`, g.progress||0));
   if(isNaN(pct)) return;
   g.progress=Math.min(100,Math.max(0,pct));
-  if(g.progress===100 && confirm('Mark this goal as completed?')) g.completed=true;
+  if(g.progress===100 && confirm('Mark this goal as completed?')) { g.completed=true; g.completedDate=today(); }
   checkBadges(); save(); renderSidebar();
 }
 
@@ -1244,9 +1246,12 @@ document.getElementById('nc-type').addEventListener('change', function(){
   if(customDates) customDates.style.display = 'none';
 });
 
-document.getElementById('nc-intensive-duration')?.addEventListener('change', function(){
-  const customDates = document.getElementById('nc-intensive-custom');
-  if(customDates) customDates.style.display = this.value==='custom' ? '' : 'none';
+// Intensive duration change — delegated to modal overlay so it works on dynamic content
+document.getElementById('modal-new-class').addEventListener('change', function(e){
+  if(e.target.id==='nc-intensive-duration'){
+    const customDates = document.getElementById('nc-intensive-custom');
+    if(customDates) customDates.style.display = e.target.value==='custom' ? '' : 'none';
+  }
 });
 
 document.getElementById('btn-submit-class').addEventListener('click',()=>{
@@ -1311,7 +1316,15 @@ function renderSkillsModal() {
 }
 
 function setSkillsStyle(s){ skillsStyle=s; renderSkillsModal(); }
-function setSkill(style,id,level){ D.skills[style]=D.skills[style].map(s=>s.id===id?{...s,level}:s); save();renderSkillsModal(); }
+function setSkill(style,id,level){
+  D.skills[style]=D.skills[style].map(s=>{
+    if(s.id!==id) return s;
+    if(s.level===level) return s; // no change — don't record duplicate history
+    const history=[...(s.history||[]), { level, date:today() }];
+    return { ...s, level, history };
+  });
+  save(); renderSkillsModal();
+}
 
 document.getElementById('btn-skills').addEventListener('click', openSkillsModal);
 
@@ -1490,8 +1503,13 @@ document.getElementById('btn-submit-injury').addEventListener('click',()=>{
 window.addEventListener('DOMContentLoaded', async () => {
   const stored = KV.get('appdata');
 
-  // Clear spotlight cache so any logic changes take effect immediately
-  KV.set('spotlight_cache', null);
+  // Clear spotlight cache only when app version changes (not every boot)
+  const APP_VERSION = '0.5';
+  const cachedVersion = KV.get('app_version');
+  if(cachedVersion !== APP_VERSION) {
+    KV.set('spotlight_cache', null);
+    KV.set('app_version', APP_VERSION);
+  }
 
   if(stored) {
     // Existing local data — merge and render immediately
@@ -1507,15 +1525,27 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Then try worker: adopt remote if it's newer (lastModified wins)
     if(workerBase()) {
       const remote = await pullFromWorker();
-      if(remote && (remote.lastModified||0) > (D.lastModified||0)) {
-        const merged = mergeData(remote);
-        merged.workerUrl = D.workerUrl; // always keep local worker URL
-        applyData(merged);
-        toast('Data updated from sync ✓');
-      } else if(remote && (D.lastModified||0) > (remote.lastModified||0)) {
-        // Local is newer — push up
-        syncDirty = true;
-        pushToWorker();
+      if(remote) {
+        const remoteTs = remote.lastModified||0;
+        const localTs  = D.lastModified||0;
+        if(remoteTs > localTs) {
+          // Remote is definitively newer — adopt it
+          const merged = mergeData(remote);
+          merged.workerUrl = D.workerUrl; // always keep local worker URL
+          applyData(merged);
+          toast('Data updated from sync ✓');
+        } else {
+          // Local is newer OR equal — push local up
+          // Equal-timestamp case: trust local (user has it in hand), push to worker
+          syncDirty = true;
+          pushToWorker();
+        }
+      } else {
+        // Worker returned nothing (404 or error) — push local data up
+        if(D.entries.length > 0) {
+          syncDirty = true;
+          pushToWorker();
+        }
       }
       startSyncPing();
     }
@@ -1552,6 +1582,8 @@ function showAccountSetup() {
     closeModal('modal-account-setup');
     KV.set('appdata', D);
     checkBadges();
+    applyTheme();
+    updatePointeButton();
     renderSpotlight();
     renderSidebar();
     renderFeed();
