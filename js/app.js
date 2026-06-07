@@ -178,6 +178,10 @@ function mergeData(raw) {
   if(typeof merged.showPointe==='undefined') merged.showPointe=false;
   if(typeof merged.workerUrl==='undefined')  merged.workerUrl='';
   if(typeof merged.lastModified==='undefined') merged.lastModified=0;
+  // Migrate existing skills to include history array
+  Object.keys(merged.skills||{}).forEach(style=>{
+    (merged.skills[style]||[]).forEach(sk=>{ if(!Array.isArray(sk.history)) sk.history=[]; });
+  });
   return merged;
 }
 
@@ -1608,6 +1612,366 @@ function showSetupTokenEntry() {
   });
 }
 
+// ══════════════════════════════════════════════════════════════════
+// JOURNEY — Year in Review & Your Story So Far
+// ══════════════════════════════════════════════════════════════════
+
+// ── Helpers ───────────────────────────────────────────────────────
+function entriesForYear(yr) {
+  return D.entries.filter(e=>e.date.startsWith(yr));
+}
+
+function availableYears() {
+  const years = [...new Set(D.entries.map(e=>e.date.slice(0,4)))].sort((a,b)=>b-a);
+  return years;
+}
+
+function bestExcerpts(entries, n=3) {
+  return [...entries]
+    .filter(e=>e.notes&&e.notes.trim().length>40)
+    .sort((a,b)=>b.notes.length-a.notes.length)
+    .slice(0,n);
+}
+
+function longestStreak(entries) {
+  if(!entries.length) return 0;
+  const dates = [...new Set(entries.map(e=>e.date))].sort();
+  let best=1, cur=1;
+  for(let i=1;i<dates.length;i++){
+    const prev=new Date(dates[i-1]+'T12:00:00');
+    const curr=new Date(dates[i]+'T12:00:00');
+    if((curr-prev)/86400000===1){ cur++; best=Math.max(best,cur); } else cur=1;
+  }
+  return best;
+}
+
+function statCard(value, label) {
+  return `<div class="review-stat-card"><div class="review-stat-val">${value}</div><div class="review-stat-lbl">${esc(label)}</div></div>`;
+}
+
+function sectionHead(text) {
+  return `<div class="review-section-head">${esc(text)}</div>`;
+}
+
+function pullQuote(entry) {
+  const season = D.seasons.find(s=>s.id===entry.seasonId);
+  return `
+    <div class="review-pull-quote">
+      <div class="review-pull-text">"${esc(entry.notes)}"</div>
+      <div class="review-pull-meta">${esc(entry.title||entry.style)} · ${fmtDateShort(entry.date)}${season?' · '+esc(season.name):''}</div>
+    </div>`;
+}
+
+// ── Year in Review ────────────────────────────────────────────────
+function openYearReview() {
+  const years = availableYears();
+  const sel   = document.getElementById('year-review-year-select');
+  const prevYr= String(new Date().getFullYear()-1);
+
+  sel.innerHTML = years.length
+    ? years.map(y=>`<option value="${y}" ${y===prevYr?'selected':''}>${y}</option>`).join('')
+    : `<option value="${new Date().getFullYear()}">${new Date().getFullYear()}</option>`;
+
+  renderYearReview();
+  openModal('modal-year-review');
+}
+
+function renderYearReview() {
+  const yr     = document.getElementById('year-review-year-select')?.value || String(new Date().getFullYear()-1);
+  const body   = document.getElementById('year-review-body');
+  const entries= entriesForYear(yr);
+  const events = D.events.filter(ev=>ev.date.startsWith(yr));
+  const goals  = D.goals.filter(g=>g.completed && (g.completedDate||'').startsWith(yr));
+  const curYr  = String(new Date().getFullYear());
+
+  document.getElementById('year-review-title').textContent =
+    yr===curYr ? `Your ${yr} So Far` : `${yr} Year in Review`;
+
+  // ── Empty / sparse state ──────────────────────────────────────
+  if(!entries.length) {
+    body.innerHTML=`
+      <div class="review-empty">
+        <div class="review-empty-title">Avant la Révérence</div>
+        <p>Before every révérence comes the work. The classes. The corrections. The moments of frustration and breakthrough that nobody sees but you.</p>
+        <p>As you log your journey, this page will become the story of your year — your hours, your performances, your goals, the things you wrote when no one was watching.</p>
+        <p class="review-empty-closing">The first page is waiting to be written.</p>
+      </div>`;
+    return;
+  }
+
+  const hrs       = entries.reduce((a,e)=>a+(e.duration||0),0)/60;
+  const streak    = longestStreak(entries);
+  const styles    = [...new Set(entries.map(e=>e.style))];
+  const excerpts  = bestExcerpts(entries);
+
+  // Skills portrait for this year — skills with history entries in this year
+  const skillsThisYear = [];
+  Object.entries(D.skills||{}).forEach(([style,sks])=>{
+    sks.forEach(sk=>{
+      const yearHistory = (sk.history||[]).filter(h=>h.date.startsWith(yr));
+      if(yearHistory.length) {
+        const startLevel = yearHistory[0].level;
+        const endLevel   = sk.level;
+        if(endLevel > startLevel) skillsThisYear.push({style,name:sk.name,from:startLevel,to:endLevel});
+      }
+    });
+  });
+
+  // First & last session
+  const sorted    = [...entries].sort((a,b)=>a.date.localeCompare(b.date));
+  const firstSess = sorted[0];
+  const lastSess  = sorted[sorted.length-1];
+
+  // Most logged style
+  const styleCounts = {};
+  entries.forEach(e=>{ styleCounts[e.style]=(styleCounts[e.style]||0)+1; });
+  const topStyle = Object.entries(styleCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  body.innerHTML = `
+    <div class="review-year-header">
+      <div class="review-year-label">${yr===curYr?'Your year in dance, so far':'Your year in dance'}</div>
+      ${D.userName?`<div class="review-dancer-name">${esc(D.userName)}</div>`:''}
+    </div>
+
+    ${sectionHead('The Numbers')}
+    <div class="review-stats-grid">
+      ${statCard(Math.round(hrs*10)/10, 'Hours danced')}
+      ${statCard(entries.length, 'Sessions logged')}
+      ${statCard(events.length, 'Performances')}
+      ${statCard(streak, 'Longest streak (days)')}
+      ${statCard(styles.length, 'Styles practiced')}
+      ${statCard(goals.length||'—', 'Goals completed')}
+    </div>
+
+    ${sectionHead('The Year')}
+    <div class="review-timeline">
+      <div class="review-timeline-item">
+        <div class="review-timeline-dot"></div>
+        <div>
+          <div class="review-timeline-label">First session of ${yr}</div>
+          <div class="review-timeline-title">${esc(firstSess.title||firstSess.style)} · ${fmtDate(firstSess.date)}</div>
+          ${firstSess.notes?`<div class="review-timeline-note">"${esc(firstSess.notes.slice(0,120))}${firstSess.notes.length>120?'…':''}"</div>`:''}
+        </div>
+      </div>
+      ${topStyle?`
+      <div class="review-timeline-item">
+        <div class="review-timeline-dot"></div>
+        <div>
+          <div class="review-timeline-label">Most practiced style</div>
+          <div class="review-timeline-title">${esc(topStyle[0])} — ${topStyle[1]} session${topStyle[1]!==1?'s':''}</div>
+        </div>
+      </div>`:''}
+      ${events.map(ev=>`
+      <div class="review-timeline-item">
+        <div class="review-timeline-dot review-timeline-dot--event"></div>
+        <div>
+          <div class="review-timeline-label">${esc(EVENT_LABELS[ev.type]||ev.type)}</div>
+          <div class="review-timeline-title">${esc(ev.name)} · ${fmtDateShort(ev.date)}</div>
+          ${ev.placement?`<div class="review-timeline-note">Placed: ${esc(ev.placement)}</div>`:''}
+          ${ev.notes?`<div class="review-timeline-note">"${esc(ev.notes.slice(0,100))}${ev.notes.length>100?'…':''}"</div>`:''}
+        </div>
+      </div>`).join('')}
+      ${yr!==curYr?`
+      <div class="review-timeline-item">
+        <div class="review-timeline-dot"></div>
+        <div>
+          <div class="review-timeline-label">Last session of ${yr}</div>
+          <div class="review-timeline-title">${esc(lastSess.title||lastSess.style)} · ${fmtDate(lastSess.date)}</div>
+        </div>
+      </div>`:''}
+    </div>
+
+    ${skillsThisYear.length?`
+    ${sectionHead('Skills Growth')}
+    <div class="review-skills-growth">
+      ${skillsThisYear.map(sk=>`
+        <div class="review-skill-row">
+          <div class="review-skill-name">${esc(sk.style)} — ${esc(sk.name)}</div>
+          <div class="review-skill-progress">
+            <span class="review-skill-stars">${'★'.repeat(sk.from)}${'☆'.repeat(5-sk.from)}</span>
+            <span class="review-skill-arrow">→</span>
+            <span class="review-skill-stars review-skill-stars--after">${'★'.repeat(sk.to)}${'☆'.repeat(5-sk.to)}</span>
+          </div>
+        </div>`).join('')}
+    </div>`:''}
+
+    ${excerpts.length?`
+    ${sectionHead('Your Words')}
+    <div class="review-pull-quotes">
+      ${excerpts.map(e=>pullQuote(e)).join('')}
+    </div>`:''}
+
+    ${yr===curYr&&D.goals.filter(g=>!g.completed).length?`
+    ${sectionHead('Still Writing')}
+    <div class="review-active-goals">
+      ${D.goals.filter(g=>!g.completed).map(g=>`
+        <div class="review-goal-row">
+          <div class="review-goal-title">${esc(g.title)}</div>
+          <div class="prog-track" style="flex:1;max-width:160px;"><div class="prog-fill" style="width:${g.progress||0}%"></div></div>
+          <div class="f12 muted">${g.progress||0}%</div>
+        </div>`).join('')}
+    </div>`:''}
+
+    <div class="review-footer">Révérence ✦ ${yr}</div>
+  `;
+}
+
+// ── Your Story So Far ─────────────────────────────────────────────
+function openStory() {
+  renderStory();
+  openModal('modal-story');
+}
+
+function renderStory() {
+  const body = document.getElementById('story-body');
+
+  if(!D.entries.length) {
+    body.innerHTML=`
+      <div class="review-empty">
+        <div class="review-empty-title">The Empty Stage</div>
+        <p>Every dancer stands here first.</p>
+        <p>This is where your story will live — from your very first session to wherever the journey takes you. Every class logged, every goal set, every performance remembered becomes part of a record that grows with you.</p>
+        <p>One day you'll open this and see years of work looking back at you.</p>
+        <p class="review-empty-closing">Start anywhere. The stage is yours.</p>
+      </div>`;
+    return;
+  }
+
+  const allSorted = [...D.entries].sort((a,b)=>a.date.localeCompare(b.date));
+  const firstEver = allSorted[0];
+  const totalHrs  = D.entries.reduce((a,e)=>a+(e.duration||0),0)/60;
+  const totalDays = Math.round((new Date()-new Date(firstEver.date+'T12:00:00'))/86400000);
+  const allStyles = [...new Set(D.entries.map(e=>e.style))];
+  const streak    = longestStreak(D.entries);
+  const topExcerpts = bestExcerpts(D.entries, 2);
+
+  // Style first-times
+  const styleFirsts = {};
+  allSorted.forEach(e=>{ if(!styleFirsts[e.style]) styleFirsts[e.style]=e; });
+
+  // Year-by-year summary
+  const years = availableYears().reverse(); // chronological
+  const yearSummaries = years.map(yr=>{
+    const yEntries = entriesForYear(yr);
+    const yHrs     = yEntries.reduce((a,e)=>a+(e.duration||0),0)/60;
+    const yEvents  = D.events.filter(ev=>ev.date.startsWith(yr));
+    const yStyles  = [...new Set(yEntries.map(e=>e.style))];
+    return { yr, sessions:yEntries.length, hrs:yHrs, events:yEvents.length, styles:yStyles };
+  });
+
+  // Skills portrait
+  const skillPortrait = Object.entries(D.skills||{})
+    .map(([style,sks])=>{
+      const avg=sks.length?sks.reduce((a,s)=>a+s.level,0)/sks.length:0;
+      return { style, avg, count: sks.filter(s=>s.level>0).length };
+    })
+    .filter(s=>s.count>0)
+    .sort((a,b)=>b.avg-a.avg);
+
+  // Badges in order earned — we don't store earn dates yet so show all earned
+  const earnedBadges = BADGE_DEFS.filter(b=>D.badges.includes(b.id));
+
+  body.innerHTML=`
+    <div class="review-year-header">
+      <div class="review-year-label">The full journey</div>
+      ${D.userName?`<div class="review-dancer-name">${esc(D.userName)}</div>`:''}
+    </div>
+
+    ${sectionHead('The Numbers')}
+    <div class="review-stats-grid">
+      ${statCard(Math.round(totalHrs*10)/10, 'Total hours')}
+      ${statCard(D.entries.length, 'Sessions logged')}
+      ${statCard(D.events.length, 'Events performed')}
+      ${statCard(D.goals.filter(g=>g.completed).length, 'Goals completed')}
+      ${statCard(streak, 'Longest streak')}
+      ${statCard(totalDays, 'Days since first session')}
+    </div>
+
+    ${sectionHead('Where It Began')}
+    <div class="review-pull-quote review-pull-quote--featured">
+      <div class="review-pull-label">Your very first session</div>
+      <div class="review-timeline-title" style="margin-bottom:.5rem;">${esc(firstEver.title||firstEver.style)} · ${fmtDate(firstEver.date)}</div>
+      ${firstEver.notes
+        ?`<div class="review-pull-text">"${esc(firstEver.notes)}"</div>`
+        :`<div class="f13 muted italic">${esc(firstEver.style)} · ${firstEver.duration} min · no notes</div>`}
+    </div>
+
+    ${sectionHead('Year by Year')}
+    <div class="review-year-grid">
+      ${yearSummaries.map(y=>`
+        <div class="review-year-card">
+          <div class="review-year-card-yr">${y.yr}</div>
+          <div class="review-year-card-stat">${Math.round(y.hrs*10)/10} <span>hrs</span></div>
+          <div class="f12 muted">${y.sessions} sessions</div>
+          ${y.events?`<div class="f12 muted">${y.events} event${y.events!==1?'s':''}</div>`:''}
+          <div class="f11 muted mt-4">${y.styles.join(', ')}</div>
+        </div>`).join('')}
+    </div>
+
+    ${Object.keys(styleFirsts).length>1?`
+    ${sectionHead('New Styles Added')}
+    <div class="review-timeline">
+      ${Object.entries(styleFirsts).sort((a,b)=>a[1].date.localeCompare(b[1].date)).map(([style,e])=>`
+        <div class="review-timeline-item">
+          <div class="review-timeline-dot"></div>
+          <div>
+            <div class="review-timeline-label">First ${esc(style)} session</div>
+            <div class="review-timeline-title">${fmtDate(e.date)}</div>
+          </div>
+        </div>`).join('')}
+    </div>`:''}
+
+    ${skillPortrait.length?`
+    ${sectionHead('Skills Portrait')}
+    <div class="review-skills-portrait">
+      ${skillPortrait.map(s=>`
+        <div class="review-portrait-row">
+          <div class="review-portrait-style">${esc(s.style)}</div>
+          <div class="prog-track flex-1"><div class="prog-fill" style="width:${Math.round(s.avg/5*100)}%"></div></div>
+          <div class="review-portrait-pct">${Math.round(s.avg/5*100)}%</div>
+        </div>`).join('')}
+    </div>`:''}
+
+    ${topExcerpts.length?`
+    ${sectionHead('Moments Worth Keeping')}
+    <div class="review-pull-quotes">
+      ${topExcerpts.map(e=>pullQuote(e)).join('')}
+    </div>`:''}
+
+    ${earnedBadges.length?`
+    ${sectionHead('Milestones')}
+    <div class="review-badges">
+      ${earnedBadges.map(b=>`
+        <div class="review-badge-item" title="${esc(b.desc)}">
+          <span class="review-badge-icon">${b.icon}</span>
+          <span class="review-badge-label">${esc(b.label)}</span>
+        </div>`).join('')}
+    </div>`:''}
+
+    ${D.goals.filter(g=>!g.completed).length?`
+    ${sectionHead('Still Writing')}
+    <div class="review-active-goals">
+      ${D.goals.filter(g=>!g.completed).map(g=>`
+        <div class="review-goal-row">
+          <div class="review-goal-title">${esc(g.title)}</div>
+          <div class="prog-track" style="flex:1;max-width:160px;"><div class="prog-fill" style="width:${g.progress||0}%"></div></div>
+          <div class="f12 muted">${g.progress||0}%</div>
+        </div>`).join('')}
+    </div>`:''}
+
+    <div class="review-footer">Révérence ✦ Your Journey</div>
+  `;
+}
+
+// ── Button wiring ─────────────────────────────────────────────────
+document.getElementById('btn-journey').addEventListener('click',()=>openModal('modal-journey'));
+document.getElementById('btn-open-year-review').addEventListener('click',()=>{
+  closeModal('modal-journey'); openYearReview();
+});
+document.getElementById('btn-open-story').addEventListener('click',()=>{
+  closeModal('modal-journey'); openStory();
+});
+
 // ── Global onclick handlers (called from rendered HTML strings) ───
 window.openEntry          = openEntry;
 window.openEventDetail    = openEventDetail;
@@ -1630,3 +1994,4 @@ window.deleteInjury       = deleteInjury;
 window.showAccountSetup   = showAccountSetup;
 window.showSetupTokenEntry= showSetupTokenEntry;
 window.editEntry          = editEntry;
+window.renderYearReview   = renderYearReview;
