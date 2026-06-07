@@ -886,3 +886,337 @@ body.light .entry-card .entry-card-title { color: #5a5040; }
 .entry-card .entry-card-meta {
   margin-top: 0; /* meta sits flush under voice */
 }
+
+/* ── Journey Chooser ─────────────────────────────────────────────── */
+.journey-chooser { display: flex; flex-direction: column; gap: .75rem; }
+
+.journey-option {
+  display:       flex;
+  align-items:   flex-start;
+  gap:           1rem;
+  padding:       1.1rem 1.25rem;
+  background:    var(--ink3);
+  border:        1px solid var(--border2);
+  border-radius: var(--r);
+  cursor:        pointer;
+  text-align:    left;
+  width:         100%;
+  transition:    var(--tr);
+  font-family:   var(--font-ui);
+}
+
+.journey-option:hover { border-color: var(--gold); background: rgba(184,152,90,.07); }
+
+.journey-option-icon {
+  font-size:   1.6rem;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top:  .1rem;
+}
+
+.journey-option-title {
+  font-family: var(--font-serif);
+  font-size:   1.1rem;
+  color:       var(--cream);
+  margin-bottom:.3rem;
+}
+
+body.light .journey-option-title { color: #1c1810; }
+
+.journey-option-desc { font-size: .82rem; color: var(--muted2); line-height: 1.5; }
+
+/* ── Review shared ───────────────────────────────────────────────── */
+.review-year-header {
+  text-align:    center;
+  padding:       .5rem 0 1.75rem;
+  border-bottom: 1px solid rgba(184,152,90,.15);
+  margin-bottom: 1.5rem;
+}
+
+.review-year-label {
+  font-size:      .72rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color:          var(--gold);
+  margin-bottom:  .4rem;
+}
+
+.review-dancer-name {
+  font-family: var(--font-serif);
+  font-style:  italic;
+  font-size:   2rem;
+  color:       var(--cream);
+}
+
+body.light .review-dancer-name { color: #1c1810; }
+
+.review-section-head {
+  font-family:    var(--font-serif);
+  font-size:      .72rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color:          var(--gold);
+  margin:         1.75rem 0 .85rem;
+  padding-bottom: .5rem;
+  border-bottom:  1px solid rgba(184,152,90,.15);
+}
+
+.review-footer {
+  text-align:  center;
+  padding:     2rem 0 .5rem;
+  font-family: var(--font-serif);
+  font-style:  italic;
+  font-size:   .9rem;
+  color:       var(--muted);
+  letter-spacing: .08em;
+}
+
+/* ── Stats grid ──────────────────────────────────────────────────── */
+.review-stats-grid {
+  display:               grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:                   .65rem;
+  margin-bottom:         .5rem;
+}
+
+@media (max-width: 520px) {
+  .review-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.review-stat-card {
+  background:    var(--ink3);
+  border-radius: var(--r-sm);
+  padding:       1rem;
+  text-align:    center;
+}
+
+.review-stat-val {
+  font-family: var(--font-serif);
+  font-size:   2rem;
+  color:       var(--cream);
+  line-height: 1;
+  margin-bottom:.25rem;
+}
+
+.review-stat-lbl {
+  font-size:      .68rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color:          var(--muted);
+}
+
+body.light .review-stat-val { color: #1c1810; }
+
+/* ── Timeline ────────────────────────────────────────────────────── */
+.review-timeline { display: flex; flex-direction: column; gap: 0; }
+
+.review-timeline-item {
+  display:       flex;
+  gap:           1rem;
+  padding:       .85rem 0;
+  border-bottom: 1px solid var(--border);
+  align-items:   flex-start;
+}
+
+.review-timeline-item:last-child { border-bottom: none; }
+
+.review-timeline-dot {
+  width:         10px;
+  height:        10px;
+  border-radius: 50%;
+  background:    var(--rose);
+  flex-shrink:   0;
+  margin-top:    .4rem;
+}
+
+.review-timeline-dot--event { background: var(--gold); }
+
+.review-timeline-label {
+  font-size:      .7rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color:          var(--muted);
+  margin-bottom:  .25rem;
+}
+
+.review-timeline-title {
+  font-family: var(--font-serif);
+  font-size:   1rem;
+  color:       var(--cream);
+}
+
+body.light .review-timeline-title { color: #1c1810; }
+
+.review-timeline-note {
+  font-family: var(--font-serif);
+  font-style:  italic;
+  font-size:   .88rem;
+  color:       var(--muted2);
+  margin-top:  .3rem;
+  line-height: 1.55;
+}
+
+/* ── Pull quotes ─────────────────────────────────────────────────── */
+.review-pull-quotes { display: flex; flex-direction: column; gap: .85rem; }
+
+.review-pull-quote {
+  background:    var(--ink3);
+  border-left:   3px solid var(--gold);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  padding:       1rem 1.1rem;
+}
+
+.review-pull-quote--featured {
+  background:    rgba(184,152,90,.07);
+  border-left:   3px solid var(--gold);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+
+.review-pull-label {
+  font-size:      .68rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color:          var(--gold);
+  margin-bottom:  .5rem;
+}
+
+.review-pull-text {
+  font-family: var(--font-serif);
+  font-style:  italic;
+  font-size:   1rem;
+  color:       var(--cream);
+  line-height: 1.68;
+  margin-bottom:.5rem;
+}
+
+body.light .review-pull-text { color: #1c1810; }
+
+.review-pull-meta {
+  font-size: .75rem;
+  color:     var(--muted);
+}
+
+/* ── Skills ──────────────────────────────────────────────────────── */
+.review-skills-growth { display: flex; flex-direction: column; gap: .5rem; }
+
+.review-skill-row {
+  display:     flex;
+  align-items: center;
+  gap:         .75rem;
+  padding:     .5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.review-skill-row:last-child { border-bottom: none; }
+.review-skill-name  { font-size: .88rem; color: var(--cream); flex: 1; min-width: 0; }
+body.light .review-skill-name { color: #1c1810; }
+.review-skill-progress { display: flex; align-items: center; gap: .4rem; flex-shrink: 0; }
+.review-skill-stars { color: var(--muted); font-size: .85rem; letter-spacing: 1px; }
+.review-skill-stars--after { color: var(--gold2); }
+.review-skill-arrow { color: var(--muted); font-size: .8rem; }
+
+.review-skills-portrait { display: flex; flex-direction: column; gap: .6rem; }
+
+.review-portrait-row {
+  display:     flex;
+  align-items: center;
+  gap:         .85rem;
+}
+
+.review-portrait-style { font-size: .88rem; color: var(--cream); width: 110px; flex-shrink: 0; }
+body.light .review-portrait-style { color: #1c1810; }
+.review-portrait-pct   { font-family: var(--font-serif); font-size: 1rem; color: var(--gold2); width: 40px; text-align: right; flex-shrink: 0; }
+
+/* ── Year grid (Story) ───────────────────────────────────────────── */
+.review-year-grid {
+  display:               grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap:                   .65rem;
+}
+
+.review-year-card {
+  background:    var(--ink3);
+  border-radius: var(--r-sm);
+  padding:       .85rem;
+  text-align:    center;
+}
+
+.review-year-card-yr {
+  font-family:   var(--font-serif);
+  font-size:     1rem;
+  color:         var(--gold2);
+  margin-bottom: .35rem;
+}
+
+.review-year-card-stat {
+  font-family: var(--font-serif);
+  font-size:   1.55rem;
+  color:       var(--cream);
+  line-height: 1;
+}
+
+body.light .review-year-card-stat { color: #1c1810; }
+
+.review-year-card-stat span { font-size: .7rem; color: var(--muted); }
+
+/* ── Badges in story ─────────────────────────────────────────────── */
+.review-badges { display: flex; flex-wrap: wrap; gap: .65rem; }
+
+.review-badge-item {
+  display:     flex;
+  align-items: center;
+  gap:         .4rem;
+  background:  var(--ink3);
+  border:      1px solid var(--border2);
+  border-radius: 99px;
+  padding:     .35rem .75rem;
+}
+
+.review-badge-icon  { font-size: 1rem; }
+.review-badge-label { font-size: .78rem; color: var(--cream); }
+body.light .review-badge-label { color: #1c1810; }
+
+/* ── Active goals in review ──────────────────────────────────────── */
+.review-active-goals { display: flex; flex-direction: column; gap: .6rem; }
+
+.review-goal-row {
+  display:     flex;
+  align-items: center;
+  gap:         .85rem;
+}
+
+.review-goal-title { font-size: .9rem; color: var(--cream); flex: 1; }
+body.light .review-goal-title { color: #1c1810; }
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+.review-empty {
+  max-width:   520px;
+  margin:      2rem auto;
+  text-align:  center;
+  padding:     1rem;
+}
+
+.review-empty-title {
+  font-family:   var(--font-serif);
+  font-style:    italic;
+  font-size:     1.8rem;
+  color:         var(--cream);
+  margin-bottom: 1.25rem;
+}
+
+body.light .review-empty-title { color: #1c1810; }
+
+.review-empty p {
+  font-family:   var(--font-serif);
+  font-style:    italic;
+  font-size:     1rem;
+  color:         var(--muted2);
+  line-height:   1.75;
+  margin-bottom: .85rem;
+}
+
+.review-empty-closing {
+  color:       var(--gold2) !important;
+  font-size:   1.05rem !important;
+  margin-top:  1.25rem;
+}
