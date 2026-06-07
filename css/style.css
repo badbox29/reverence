@@ -36,19 +36,19 @@
 
 body.light {
   /* Medium-depth warm earth tones — dark header stays dark */
-  --ink:    #c8b898;   /* page bg — gold-warm tan, lives in the rose/gold universe */
-  --ink2:   #faf4e8;   /* card surface — warm cream, clearly lifts off bg */
-  --ink3:   #f0e8d4;   /* inner card / input — one step deeper than card */
-  --ink4:   #c2b48a;   /* dividers, progress tracks */
-  --ink5:   #a89870;   /* stronger borders */
+  --ink:    #c8b898;   /* page bg — gold-warm tan */
+  --ink2:   #d8cdb0;   /* card surface — stationery layer, just above bg */
+  --ink3:   #cdc09e;   /* inner card / input — one step deeper than card */
+  --ink4:   #b8a880;   /* dividers, progress tracks */
+  --ink5:   #a09068;   /* stronger borders */
   --muted:  #7a6a50;   /* muted labels */
   --muted2: #4a3a22;   /* secondary text */
   --cream:  #1a1410;   /* primary text — warm near-black */
-  --border:  rgba(80,60,35,.14);
-  --border2: rgba(80,60,35,.25);
-  --shadow-sm: 0 1px 6px rgba(60,40,20,.12);
-  --shadow-md: 0 4px 20px rgba(60,40,20,.18);
-  --shadow-lg: 0 12px 48px rgba(60,40,20,.26);
+  --border:  rgba(80,60,35,.16);
+  --border2: rgba(80,60,35,.28);
+  --shadow-sm: 0 1px 6px rgba(120,95,55,.13);
+  --shadow-md: 0 4px 20px rgba(120,95,55,.19);
+  --shadow-lg: 0 12px 48px rgba(120,95,55,.28);
   --rose:   #b56b62;
   --rose2:  #c47d74;
   --gold:   #9a7a3a;
