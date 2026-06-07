@@ -121,18 +121,23 @@ a:hover { text-decoration: underline; }
 
 .header-actions { display: flex; align-items: center; gap: .4rem; }
 
-@media (max-width: 860px) {
-  .header-inner  { padding: 0 1rem; height: 54px; }
+/* ── Header responsive breakpoints ──────────────────────────────── */
+/* Desktop/tablet (≥768px): full nav visible, hamburger hidden */
+@media (max-width: 900px) and (min-width: 768px) {
+  .header-inner  { padding: 0 .85rem; height: 58px; gap: .4rem; }
   .brand-sub     { display: none; }
-}
-@media (max-width: 560px) {
-  .header-inner  { padding: 0 .6rem; height: 48px; }
-  .brand-wordmark { font-size: 1.3rem; }
   .btn-label     { display: none; }
-  .header-actions { gap: .15rem; }
+  .header-actions { gap: .2rem; }
+}
+
+/* Mobile (<768px): hide desktop nav, show hamburger only */
+@media (max-width: 767px) {
+  .header-inner   { padding: 0 .75rem; height: 52px; }
+  .brand-sub      { display: none; }
+  .brand-wordmark { font-size: 1.25rem; }
 }
 @media (max-width: 380px) {
-  .brand-wordmark { font-size: 1.1rem; }
+  .brand-wordmark { font-size: 1.05rem; }
 }
 
 /* ── Buttons ────────────────────────────────────────────────────── */
@@ -1223,27 +1228,34 @@ body.light .review-empty-title { color: #1c1810; }
 
 /* ── Mobile menu ─────────────────────────────────────────────────── */
 
-/* Hide mobile button on desktop, hide desktop nav on mobile */
+/* ── Desktop/Mobile nav visibility ──────────────────────────────── */
+/* Default: show desktop nav, hide hamburger */
+.desktop-nav     { display: flex; }
 .mobile-menu-btn { display: none; }
 
+/* Mobile (<768px): hide desktop nav, show hamburger */
 @media (max-width: 767px) {
-  .desktop-nav    { display: none !important; }
-  .mobile-menu-btn{ display: flex !important; }
+  .desktop-nav     { display: none !important; flex: none; }
+  .mobile-menu-btn { display: flex !important; }
+
+  /* Override any width/flex rules that might force desktop nav visible */
+  nav.desktop-nav  { display: none !important; }
 }
 
 /* The dropdown panel */
 .mobile-menu {
-  display:          none;
-  position:         absolute;
-  top:              100%;
-  left:             0;
-  right:            0;
-  background:       var(--ink2);
-  border-bottom:    1px solid rgba(184,152,90,.18);
-  box-shadow:       0 8px 32px rgba(0,0,0,.45);
-  z-index:          190;
-  animation:        mobileMenuIn .2s cubic-bezier(.16,1,.3,1);
-  overflow:         hidden;
+  display:    none;
+  position:   fixed;
+  top:        52px; /* matches mobile header height — keep in sync with header-inner height at <767px */
+  left:       0;
+  right:      0;
+  background: var(--ink2);
+  border-bottom: 1px solid rgba(184,152,90,.18);
+  box-shadow: 0 8px 32px rgba(0,0,0,.45);
+  z-index:    9990; /* above everything including modals backdrop */
+  max-height: calc(100vh - 52px);
+  overflow-y: auto;
+  animation:  mobileMenuIn .2s cubic-bezier(.16,1,.3,1);
 }
 
 .mobile-menu.open { display: block; }
@@ -1314,12 +1326,4 @@ body.light .mobile-menu-item:hover    { background: rgba(0,0,0,.05); }
 }
 .mobile-menu-events:hover { background: rgba(184,152,90,.18) !important; }
 
-/* Ensure site-header is position:relative so dropdown can anchor */
-.site-header { position: relative; }
 
-/* ── Inner screen header tightening (~768–900px range) ───────────── */
-@media (min-width: 768px) and (max-width: 900px) {
-  .header-inner { padding: 0 .85rem; gap: .5rem; }
-  .btn-label    { display: none; }
-  .header-actions { gap: .2rem; }
-}
