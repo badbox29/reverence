@@ -41,6 +41,9 @@
       <button class="btn btn-icon" id="btn-injuries" title="Injury Log">
         <span class="material-icons" style="font-size:20px;">personal_injury</span>
       </button>
+      <button class="btn btn-icon" id="btn-journey" title="My Journey">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      </button>
       <button class="btn btn-icon" id="btn-settings" title="Settings">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
@@ -749,6 +752,65 @@
         <button class="btn btn-primary" id="btn-submit-switch-account">Load Account</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Journey Chooser                                         -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-journey" role="dialog" aria-modal="true" aria-label="My Journey">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 class="modal-title" style="font-style:italic;">My Journey</h2>
+      <button class="modal-close" data-close="modal-journey">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="journey-chooser">
+        <button class="journey-option" id="btn-open-year-review">
+          <div class="journey-option-icon">📅</div>
+          <div>
+            <div class="journey-option-title">Year in Review</div>
+            <div class="journey-option-desc">Your dance story, year by year — hours, performances, goals, and your own words.</div>
+          </div>
+        </button>
+        <button class="journey-option" id="btn-open-story">
+          <div class="journey-option-icon">✦</div>
+          <div>
+            <div class="journey-option-title">Your Story So Far</div>
+            <div class="journey-option-desc">The full arc of your journey, from your very first session to today.</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Year in Review                                          -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-year-review" role="dialog" aria-modal="true" aria-label="Year in Review">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 class="modal-title" id="year-review-title">Year in Review</h2>
+      <div class="modal-header-actions">
+        <select class="select-filter" id="year-review-year-select" onchange="renderYearReview()"></select>
+        <button class="modal-close" data-close="modal-year-review">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="year-review-body"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Your Story So Far                                       -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-story" role="dialog" aria-modal="true" aria-label="Your Story So Far">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 class="modal-title" style="font-style:italic;">Your Story So Far</h2>
+      <button class="modal-close" data-close="modal-story">✕</button>
+    </div>
+    <div class="modal-body" id="story-body"></div>
   </div>
 </div>
 
