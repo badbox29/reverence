@@ -541,16 +541,149 @@ function renderSidebar() {
 }
 
 // ── Spotlight ─────────────────────────────────────────────────────
+// ── Spotlight ─────────────────────────────────────────────────────
+// Chosen once per calendar day and cached in localStorage.
+// Priority: "on this day" anniversary → milestone moments → contrast pick.
+
+function getSpotlightEntry() {
+  const todayStr = today();
+
+  // Return cached pick if it was chosen today
+  const cached = KV.get('spotlight_cache');
+  if(cached && cached.date === todayStr && cached.entryId) {
+    const entry = D.entries.find(e=>e.id===cached.entryId);
+    if(entry) return { entry, frame: cached.frame };
+  }
+
+  if(!D.entries.length) return null;
+
+  const pastEntries = D.entries.filter(e=>e.date < todayStr);
+  if(!pastEntries.length) return null;
+
+  const todayMD   = todayStr.slice(5);      // "MM-DD"
+  const todayFull = new Date(todayStr+'T12:00:00');
+
+  // Helper: days between two date strings
+  const daysBetween = (a,b) => Math.round(Math.abs(new Date(a+'T12:00:00')-new Date(b+'T12:00:00'))/86400000);
+
+  // Helper: prefer entries that have notes
+  const hasNotes = e => e.notes && e.notes.trim().length > 20;
+
+  let pick = null;
+  let frame = '';
+
+  // ── Priority 1: "On this day" — exact MM-DD match in a prior year ─
+  const anniversaries = pastEntries
+    .filter(e => e.date.slice(5)===todayMD && e.date.slice(0,4)<todayStr.slice(0,4))
+    .sort((a,b)=>a.date.localeCompare(b.date)); // oldest first
+
+  if(anniversaries.length) {
+    // Prefer ones with notes; among those pick the oldest (most nostalgic)
+    pick = anniversaries.find(hasNotes) || anniversaries[0];
+    const yrsAgo = todayFull.getFullYear() - new Date(pick.date+'T12:00:00').getFullYear();
+    frame = yrsAgo === 1 ? 'One year ago today…' : `${yrsAgo} years ago today…`;
+  }
+
+  // ── Priority 2: "Around this time" — within 7 days, prior year ────
+  if(!pick) {
+    const nearby = pastEntries.filter(e=>{
+      const yr = e.date.slice(0,4);
+      if(yr >= todayStr.slice(0,4)) return false;
+      const entryMD = new Date(todayStr.slice(0,4)+'-'+e.date.slice(5)+'T12:00:00');
+      return Math.abs(entryMD - todayFull)/86400000 <= 7;
+    }).sort((a,b)=>a.date.localeCompare(b.date));
+    if(nearby.length) {
+      pick = nearby.find(hasNotes) || nearby[0];
+      const days = daysBetween(pick.date, todayStr);
+      const yrsAgo = todayFull.getFullYear() - new Date(pick.date+'T12:00:00').getFullYear();
+      frame = `Around this time, ${yrsAgo === 1 ? 'a year' : yrsAgo+' years'} ago…`;
+    }
+  }
+
+  // ── Priority 3: Milestone moments ─────────────────────────────────
+  if(!pick) {
+    const sorted = [...pastEntries].sort((a,b)=>a.date.localeCompare(b.date));
+
+    // First entry ever
+    const firstEntry = sorted[0];
+
+    // First entry per style
+    const styleFirsts = {};
+    sorted.forEach(e=>{ if(!styleFirsts[e.style]) styleFirsts[e.style]=e; });
+
+    // Entry closest before a logged event
+    let preEventEntry = null;
+    D.events.forEach(ev=>{
+      const before = pastEntries
+        .filter(e=>e.date<ev.date)
+        .sort((a,b)=>b.date.localeCompare(a.date))[0];
+      if(before && (!preEventEntry || before.date > preEventEntry.date)) {
+        preEventEntry = { entry: before, eventName: ev.name };
+      }
+    });
+
+    // Pick a milestone with preference for notes
+    const milestones = [
+      { entry: firstEntry, frame: 'Your very first session…' },
+      ...Object.entries(styleFirsts).map(([style,e])=>({ entry:e, frame:`Your first ${style} session…` })),
+      ...(preEventEntry ? [{ entry: preEventEntry.entry, frame:`Just before "${esc(preEventEntry.eventName)}"…` }] : []),
+    ].filter(m=>m.entry);
+
+    // Deterministically pick based on today's date so it's stable all day
+    const seed = parseInt(todayStr.replace(/-/g,'')) % milestones.length;
+    const milestone = milestones[seed];
+    if(milestone) { pick = milestone.entry; frame = milestone.frame; }
+  }
+
+  // ── Priority 4: Contrast — oldest entry with notes ────────────────
+  if(!pick) {
+    const withNotes = pastEntries.filter(hasNotes).sort((a,b)=>a.date.localeCompare(b.date));
+    pick = withNotes[0] || pastEntries.sort((a,b)=>a.date.localeCompare(b.date))[0];
+    const days = daysBetween(pick.date, todayStr);
+    if(days >= 365) {
+      const yrs = Math.floor(days/365);
+      frame = `${yrs === 1 ? 'A year' : yrs+' years'} ago…`;
+    } else if(days >= 30) {
+      frame = `${Math.floor(days/30)} month${Math.floor(days/30)>1?'s':''} ago…`;
+    } else {
+      frame = `${days} day${days!==1?'s':''} ago…`;
+    }
+  }
+
+  // Cache the pick for today
+  if(pick) KV.set('spotlight_cache', { date: todayStr, entryId: pick.id, frame });
+  return pick ? { entry: pick, frame } : null;
+}
+
 function renderSpotlight() {
-  const el=document.getElementById('spotlight-content');
-  if(!D.entries.length){ el.innerHTML='<div class="spotlight-empty">Your past sessions will appear here as a daily highlight.</div>'; return; }
-  const past=D.entries.filter(e=>e.date<today()).sort((a,b)=>b.date.localeCompare(a.date));
-  const pick=past[Math.floor(Math.random()*Math.max(past.length,1))]||D.entries[D.entries.length-1];
-  if(!pick) return;
+  const el = document.getElementById('spotlight-content');
+  if(!D.entries.length) {
+    el.innerHTML='<div class="spotlight-empty">Your past sessions will appear here as a daily highlight.</div>';
+    return;
+  }
+
+  const result = getSpotlightEntry();
+  if(!result) {
+    el.innerHTML='<div class="spotlight-empty">Log a few sessions and this space will come alive.</div>';
+    return;
+  }
+
+  const { entry: e, frame } = result;
+  const season = D.seasons.find(s=>s.id===e.seasonId);
+
+  // Skills growth callout — show if the style has improved since this entry
+  const styleSkills = D.skills[e.style]||[];
+  const avgNow = styleSkills.length ? styleSkills.reduce((a,s)=>a+s.level,0)/styleSkills.length : 0;
+
   el.innerHTML=`
-    <div class="spotlight-name">${esc(pick.title||pick.style)}</div>
-    <div class="spotlight-meta">${fmtDate(pick.date)} · ${pick.duration}min · ${esc(pick.style)}</div>
-    ${pick.notes?`<div class="spotlight-excerpt">${esc(pick.notes)}</div>`:''}
+    <div class="spotlight-frame">${esc(frame)}</div>
+    <div class="spotlight-name">${esc(e.title||e.style)}</div>
+    <div class="spotlight-meta">
+      ${fmtDate(e.date)} · ${e.duration}min · ${esc(e.style)}
+      ${season?` · ${esc(season.name)}`:''}
+    </div>
+    ${e.notes?`<div class="spotlight-excerpt">"${esc(e.notes)}"</div>`:''}
+    ${avgNow>0?`<div class="spotlight-growth">Your ${esc(e.style)} skills are now at ${Math.round(avgNow/5*100)}% ✦</div>`:''}
   `;
 }
 
