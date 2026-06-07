@@ -48,12 +48,36 @@
 // Requests with no Origin header (e.g. curl, Postman) are blocked.
 const ALLOWED_ORIGINS = [
   'https://badbox29.github.io',
+  'https://tome2.freedomtothink.social',
 ];
 
 // Rate limiting — sliding window
 const RATE_WINDOW_SECONDS = 60 * 60;       // 1 hour window
 const MAX_REQUESTS_PER_WINDOW = 60;        // max GET attempts per IP per hour
 const RATE_KEY_TTL = RATE_WINDOW_SECONDS * 2; // KV TTL for rate limit entries
+
+// Google OAuth — set this to your Google Cloud OAuth Client ID when ready.
+// The worker uses it to verify ID tokens issued by Google.
+const GOOGLE_CLIENT_ID = null; // e.g. '123456789-abc.apps.googleusercontent.com'
+
+// ── Google JWT verification (stub) ───────────────────────────────
+// Verifies a Google ID token by checking the signature against
+// Google's public keys and validating aud, iss, and exp claims.
+// STUB: returns null until GOOGLE_CLIENT_ID is set and implementation
+// is complete. Safe to call — callers check for null return.
+async function verifyGoogleJWT(idToken) {
+  if(!GOOGLE_CLIENT_ID) {
+    console.warn('[Auth] verifyGoogleJWT called but GOOGLE_CLIENT_ID not set.');
+    return null;
+  }
+  // TODO: fetch https://www.googleapis.com/oauth2/v3/certs
+  // Decode JWT header to get kid, find matching key, verify RS256 signature.
+  // Validate: aud === GOOGLE_CLIENT_ID, iss in ['accounts.google.com',
+  // 'https://accounts.google.com'], exp > Date.now()/1000.
+  // Return decoded payload { sub, email, name, picture } on success, null on failure.
+  console.log('[Auth] verifyGoogleJWT() stub called — not yet implemented.');
+  return null;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────
 function respond(body, status = 200, extraHeaders = {}) {
@@ -136,6 +160,40 @@ export default {
       // ── Health check ──────────────────────────────────────────────
       if(url.pathname === '/') {
         return respond(JSON.stringify({ ok: true, service: 'Reverence KV' }), 200, cors);
+      }
+
+      // ── Auth routes (Google OAuth — stub, not yet implemented) ────
+      // POST /auth/google  — verify Google ID token, return KV key (sub)
+      // POST /auth/verify  — verify an existing Google session is still valid
+      // POST /auth/migrate — migrate a token account to Google (10-min TTL flow)
+      if(url.pathname === '/auth/google') {
+        if(method !== 'POST') return respondText('Method not allowed', 405, cors);
+        if(!GOOGLE_CLIENT_ID) {
+          return respond(JSON.stringify({ error: 'Google auth not configured' }), 501, cors);
+        }
+        // TODO: read idToken from request body, call verifyGoogleJWT(),
+        // derive KV key from sub claim, return { ok, kvKey } to app.
+        return respond(JSON.stringify({ error: 'Not implemented' }), 501, cors);
+      }
+
+      if(url.pathname === '/auth/verify') {
+        if(method !== 'POST') return respondText('Method not allowed', 405, cors);
+        if(!GOOGLE_CLIENT_ID) {
+          return respond(JSON.stringify({ error: 'Google auth not configured' }), 501, cors);
+        }
+        // TODO: verify the stored credential is still valid (not expired).
+        return respond(JSON.stringify({ error: 'Not implemented' }), 501, cors);
+      }
+
+      if(url.pathname === '/auth/migrate') {
+        if(method !== 'POST') return respondText('Method not allowed', 405, cors);
+        if(!GOOGLE_CLIENT_ID) {
+          return respond(JSON.stringify({ error: 'Google auth not configured' }), 501, cors);
+        }
+        // TODO: implement one-way token→Google migration flow.
+        // Verify token ownership + Google JWT, copy data atomically,
+        // invalidate old token, write migration record.
+        return respond(JSON.stringify({ error: 'Not implemented' }), 501, cors);
       }
 
       // ── Route: /kv/:token ─────────────────────────────────────────
