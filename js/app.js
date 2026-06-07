@@ -301,7 +301,7 @@ function isLegacyToken(token) {
 
 // The Google Client ID for OAuth. Set this when the Google Cloud
 // project is created and credentials are issued.
-const GOOGLE_CLIENT_ID = null; // e.g. '123456789.apps.googleusercontent.com'
+const GOOGLE_CLIENT_ID = '816310286560-4tgoor67vdu5jh65nlul0lr78rkrc5bc.apps.googleusercontent.com';
 
 // isGoogleAuthAvailable() — true only when a Client ID is configured.
 // Gates all Google sign-in UI so the button never appears prematurely.
