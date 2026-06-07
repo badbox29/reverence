@@ -793,3 +793,50 @@ body.light .event-card-title { color: #1c1810; }
   color:      var(--muted2);
   border:     1px solid var(--border2);
 }
+
+/* ── Spotlight enhancements ──────────────────────────────────────── */
+.spotlight-frame {
+  font-size:      .72rem;
+  font-weight:    500;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color:          var(--gold);
+  margin-bottom:  .65rem;
+  display:        flex;
+  align-items:    center;
+  gap:            .5rem;
+}
+
+.spotlight-frame::before {
+  content:    '';
+  display:    inline-block;
+  width:      24px;
+  height:     1px;
+  background: var(--gold);
+  opacity:    .5;
+  flex-shrink:0;
+}
+
+.spotlight-excerpt {
+  font-family:          var(--font-serif);
+  font-style:           italic;
+  font-size:            1rem;
+  color:                rgba(242,237,230,.78);
+  line-height:          1.68;
+  margin-top:           .6rem;
+  display:              -webkit-box;
+  -webkit-line-clamp:   3;
+  -webkit-box-orient:   vertical;
+  overflow:             hidden;
+}
+
+.spotlight-growth {
+  margin-top:     .85rem;
+  padding-top:    .75rem;
+  border-top:     1px solid rgba(184,152,90,.18);
+  font-size:      .78rem;
+  color:          var(--gold2);
+  letter-spacing: .04em;
+  font-style:     italic;
+  font-family:    var(--font-serif);
+}
