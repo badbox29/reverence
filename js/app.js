@@ -460,13 +460,15 @@ function renderFeed() {
   const slice=entries.slice((currentPage-1)*PER_PAGE, currentPage*PER_PAGE);
 
   const feed=document.getElementById('entry-feed');
-  const empty=document.getElementById('feed-empty');
 
   if(!slice.length){
-    feed.innerHTML=''; feed.appendChild(empty); empty.style.display='';
+    feed.innerHTML=`
+      <div class="feed-empty" id="feed-empty">
+        <div class="feed-empty-icon">🩰</div>
+        <p>No entries yet. Log your first session to begin.</p>
+      </div>`;
     document.getElementById('pagination').innerHTML=''; return;
   }
-  empty.style.display='none';
 
   feed.innerHTML=slice.map(e=>{
     const season=D.seasons.find(s=>s.id===e.seasonId);
