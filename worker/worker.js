@@ -210,7 +210,7 @@ function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin':  origin,
     'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Timestamp, X-Signature',
     'Vary': 'Origin',
   };
 }
