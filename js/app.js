@@ -2155,9 +2155,39 @@ function showAccountSetup() {
   openModal('modal-account-setup');
   document.getElementById('btn-setup-has-account').addEventListener('click', showSetupLoadChoice);
   document.getElementById('btn-setup-new-account').addEventListener('click', showSetupFresh);
-  document.getElementById('btn-setup-guest').addEventListener('click', () => {
-    // Stay as guest — data saves locally, no worker sync
-    D.authMethod = 'guest';
+  document.getElementById('btn-setup-guest').addEventListener('click', showSetupGuest);
+}
+
+// ── Guest intro screen — name + studio before entering as guest ───
+function showSetupGuest() {
+  setupScreen('Just Exploring?', `
+    <p class="f13 lh muted" style="margin-bottom:1rem;">
+      Tell us a little about yourself — or skip and jump straight in.
+      You can always fill this in later from Settings.
+    </p>
+    <div class="form-group">
+      <label class="form-label">Your Name <span class="muted" style="font-size:.78rem;">(optional)</span></label>
+      <input class="input" id="guest-name" placeholder="First name, last name, or username…"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Studio Name <span class="muted" style="font-size:.78rem;">(optional)</span></label>
+      <input class="input" id="guest-studio" placeholder="Your dance studio…"/>
+    </div>
+    <div class="form-actions" style="flex-direction:column;gap:.65rem;margin-top:.5rem;">
+      <button class="btn btn-primary w100" id="btn-guest-continue" style="justify-content:center;">
+        Continue as Guest
+      </button>
+      <button class="btn btn-ghost btn-sm" id="btn-setup-back" style="justify-content:center;">← Back</button>
+    </div>
+  `);
+
+  document.getElementById('btn-setup-back').addEventListener('click', showAccountSetup);
+  document.getElementById('btn-guest-continue').addEventListener('click', () => {
+    const name   = document.getElementById('guest-name').value.trim();
+    const studio = document.getElementById('guest-studio').value.trim();
+    D.authMethod  = 'guest';
+    if(name)   D.userName   = name;
+    if(studio) D.studioName = studio;
     KV.set('appdata', D);
     checkBadges();
     applyTheme();
@@ -2332,8 +2362,9 @@ function showSetupFresh() {
        </button>`
     : '';
 
-  // Pre-populate name if already set (guest may have entered it in Settings)
-  const existingName = D?.userName || '';
+  // Pre-populate name and studio if already set (guest may have entered them)
+  const existingName   = D?.userName   || '';
+  const existingStudio = D?.studioName || '';
   const title  = isGuest() ? 'Create Your Account' : 'Start Fresh';
   const intro  = isGuest()
     ? 'Set up your account to save your data across devices. Everything you\'ve done as a guest comes with you.'
@@ -2346,6 +2377,11 @@ function showSetupFresh() {
       <input class="input" id="fresh-name" placeholder="First name, last name, or username…"
              value="${esc(existingName)}"/>
       <div class="form-hint">This appears in your journal and year in review.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Studio Name <span class="muted" style="font-size:.78rem;">(optional)</span></label>
+      <input class="input" id="fresh-studio" placeholder="Your dance studio…"
+             value="${esc(existingStudio)}"/>
     </div>
     <div class="form-group">
       <label class="form-label">Worker URL</label>
@@ -2370,6 +2406,7 @@ function showSetupFresh() {
   });
 
   const nameInput   = document.getElementById('fresh-name');
+  const studioInput = document.getElementById('fresh-studio');
   const workerInput = document.getElementById('fresh-worker-url');
   const statusEl    = document.getElementById('setup-status');
 
@@ -2386,13 +2423,15 @@ function showSetupFresh() {
   document.getElementById('btn-fresh-token').addEventListener('click', async () => {
     if(!validateFresh()) return;
     const name   = nameInput.value.trim();
+    const studio = studioInput.value.trim();
     const worker = workerInput.value.trim();
 
     statusEl.style.color = 'var(--gold2)';
     statusEl.textContent = 'Creating account…';
 
-    D.userName  = name;
-    D.workerUrl = worker.replace(/\/+$/,'');
+    D.userName   = name;
+    D.studioName = studio;
+    D.workerUrl  = worker.replace(/\/+$/,'');
     D.authMethod = 'token';
     KV.set('appdata', D);
 
@@ -2416,13 +2455,15 @@ function showSetupFresh() {
     document.getElementById('btn-fresh-google')?.addEventListener('click', async () => {
       if(!validateFresh()) return;
       const name   = nameInput.value.trim();
+      const studio = studioInput.value.trim();
       const worker = workerInput.value.trim();
 
       statusEl.style.color = 'var(--gold2)';
       statusEl.textContent = 'Testing connection…';
 
-      D.userName  = name;
-      D.workerUrl = worker.replace(/\/+$/,'');
+      D.userName   = name;
+      D.studioName = studio;
+      D.workerUrl  = worker.replace(/\/+$/,'');
 
       const connected = await testWorkerUrl(D.workerUrl);
       if(!connected) {
@@ -2435,13 +2476,13 @@ function showSetupFresh() {
       statusEl.textContent = 'Connected — opening Google sign-in…';
 
       // Show a Google button screen for the final step
-      showSetupFreshGoogle(name, worker);
+      showSetupFreshGoogle(name, worker, studio);
     });
   }
 }
 
 // ── S2B → Google: final Google sign-in step for new accounts ─────
-function showSetupFreshGoogle(name, workerUrl) {
+function showSetupFreshGoogle(name, workerUrl, studio) {
   setupScreen('Link Google Account', `
     <p class="f13 lh muted" style="margin-bottom:1rem;">
       Sign in with Google to secure your new account.
@@ -2458,8 +2499,9 @@ function showSetupFreshGoogle(name, workerUrl) {
   const container = document.getElementById('fresh-google-container');
   const statusEl  = document.getElementById('setup-status');
 
-  D.userName  = name;
-  D.workerUrl = workerUrl.replace(/\/+$/,'');
+  D.userName   = name;
+  D.studioName = studio || '';
+  D.workerUrl  = workerUrl.replace(/\/+$/,'');
 
   signInWithGoogle(container).then(result => {
     if(result?.ok) {
