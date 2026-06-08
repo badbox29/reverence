@@ -68,7 +68,7 @@ const GOOGLE_CLIENT_ID = '816310286560-4tgoor67vdu5jh65nlul0lr78rkrc5bc.apps.goo
 // travels as a bare bearer credential.
 // HMAC_REQUIRED: set to false during rollout to accept unsigned requests
 // from older clients; set to true once all clients are updated.
-const HMAC_REQUIRED = false; // flip to true after app.js is deployed
+const HMAC_REQUIRED = true; // flip to true after app.js is deployed
 
 // ── Google JWT verification ───────────────────────────────────────
 // Verifies a Google ID token by fetching Google's public JWKS, finding
