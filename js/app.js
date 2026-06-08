@@ -491,8 +491,12 @@ async function signInWithGoogle(buttonEl) {
 
   return new Promise(resolve => {
     google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback:  async (response) => {
+      client_id:   GOOGLE_CLIENT_ID,
+      auto_select: false, // never auto-prompt — only show when explicitly triggered
+      callback:    async (response) => {
+        // Cancel any pending GIS prompt immediately after credential is received.
+        // Without this, GIS continues auto-prompting on subsequent page interactions.
+        google.accounts.id.cancel();
         const result = await handleGoogleCredential(response.credential);
         resolve(result);
       },
@@ -526,8 +530,9 @@ async function signInWithGoogle(buttonEl) {
 async function signOutGoogle() {
   if(!isGoogleAccount()) return;
   const email = D.linkedGoogle?.email;
-  if(email && window.google?.accounts?.id) {
-    google.accounts.id.revoke(email, () => {});
+  if(window.google?.accounts?.id) {
+    google.accounts.id.cancel();
+    if(email) google.accounts.id.revoke(email, () => {});
   }
   KV.set('google_id_token', null);
   D.authMethod   = 'google'; // keep as google — don't downgrade silently
