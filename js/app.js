@@ -124,17 +124,77 @@ function setSyncStatus(s) {
 }
 
 // Push D to worker for the given token (defaults to D.userToken)
+// ── HMAC request signing (token accounts) ────────────────────────
+// Derives a signing key from the token via HKDF and signs every
+// worker request. The raw token never travels as a bare bearer
+// credential. Transparent to the user — no UX change.
+
+// deriveHmacKey(token) — derives a 256-bit HMAC-SHA256 key from the
+// token via HKDF. Must match the derivation in worker.js exactly.
+async function deriveHmacKey(token) {
+  const enc    = new TextEncoder();
+  const keyMat = await crypto.subtle.importKey(
+    'raw', enc.encode(token),
+    { name: 'HKDF' }, false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256',
+      salt: enc.encode('reverence-hmac-v1'),
+      info: enc.encode('request-signing') },
+    keyMat,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false, ['sign']
+  );
+}
+
+// signRequest(method, token, body) — produces X-Timestamp and X-Signature
+// headers for a worker request.
+// message format: "<METHOD>:<token>:<timestamp>:<bodyHash>"
+async function signRequest(method, token, body) {
+  const enc       = new TextEncoder();
+  const timestamp = String(Date.now());
+  const bodyHash  = Array.from(
+    new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(body || '')))
+  ).map(b => b.toString(16).padStart(2,'0')).join('');
+
+  const message  = `${method.toUpperCase()}:${token}:${timestamp}:${bodyHash}`;
+  const key      = await deriveHmacKey(token);
+  const sigBytes = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  const sig      = btoa(String.fromCharCode(...new Uint8Array(sigBytes)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+
+  return { 'X-Timestamp': timestamp, 'X-Signature': sig };
+}
+
+// authHeaders(method, token, body) — returns the correct auth headers
+// for a worker request based on account type:
+//   Google accounts → Authorization: Bearer <idToken>
+//   Token accounts  → X-Timestamp + X-Signature (HMAC)
+async function authHeaders(method, token, body) {
+  if(isGoogleAccount()) {
+    const idToken = KV.get('google_id_token');
+    return idToken ? { 'Authorization': `Bearer ${idToken}` } : {};
+  }
+  // Token account — sign with HMAC
+  try {
+    return await signRequest(method, token, body);
+  } catch {
+    return {}; // fail open during rollout — worker HMAC_REQUIRED=false
+  }
+}
+
 async function pushToWorker(token) {
   const base = workerBase();
   token = token || D?.userToken;
   if(!base || !token) return false;
   setSyncStatus('syncing');
   try {
-    const payload = { ...D }; // D.lastModified already stamped by save()
+    const body    = JSON.stringify({ ...D });
+    const auth    = await authHeaders('PUT', token, body);
     const res = await fetch(`${base}/kv/${encodeURIComponent(token)}`, {
       method:  'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body,
     });
     if(res.ok) { syncDirty=false; setSyncStatus('ok'); return true; }
     setSyncStatus('error'); return false;
@@ -147,14 +207,16 @@ async function pushToWorker(token) {
 // Pull data from worker for the given token
 async function pullFromWorker(token) {
   const base = workerBase();
-  // For Google accounts use the google:<sub> KV key, not the userToken
-  token = token || (isGoogleAccount() ? D?.userToken : D?.userToken);
+  token = token || D?.userToken;
   if(!base || !token) return null;
   setSyncStatus('syncing');
   try {
-    const res = await fetch(`${base}/kv/${encodeURIComponent(token)}`);
+    const auth = await authHeaders('GET', token, '');
+    const res  = await fetch(`${base}/kv/${encodeURIComponent(token)}`, {
+      headers: auth,
+    });
 
-    // 410 = account migrated to Google — surface this to the caller
+    // 410 = account migrated to Google
     if(res.status === 410) {
       setSyncStatus('idle');
       const data = await res.json().catch(() => ({}));
@@ -177,10 +239,12 @@ async function pullFromWorker(token) {
       KV.set('token_upgrade_dismissed', true);
       const base2 = (data.workerUrl || D?.workerUrl || '').replace(/\/+$/, '');
       if(base2) {
+        const migrBody = JSON.stringify(data);
+        const migrAuth = await authHeaders('PUT', migratedTo, migrBody).catch(() => ({}));
         fetch(`${base2}/kv/${encodeURIComponent(migratedTo)}`, {
           method:  'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify(data),
+          headers: { 'Content-Type': 'application/json', ...migrAuth },
+          body:    migrBody,
         }).catch(() => {});
       }
       toast('Account security upgraded automatically ✓');
