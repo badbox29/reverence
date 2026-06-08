@@ -1065,7 +1065,7 @@ function renderFeed() {
   feed.innerHTML=slice.map(e=>{
     const season=D.seasons.find(s=>s.id===e.seasonId);
     const cls=season?.classes?.find(c=>c.id===e.classId);
-    const styleKey=e.style.toLowerCase().replace(/[\s-]+/g,'-');
+    const styleKey=(e.style||'other').toLowerCase().replace(/[\s-]+/g,'-');
     const moodEmoji=e.mood?.split(' ')[0]||'';
     // Fallback voice line when no notes
     const voiceLine=e.notes
