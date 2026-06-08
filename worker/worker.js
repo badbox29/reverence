@@ -51,14 +51,24 @@ const ALLOWED_ORIGINS = [
   'https://tome2.freedomtothink.social',
 ];
 
-// Rate limiting — sliding window
-const RATE_WINDOW_SECONDS = 60 * 60;       // 1 hour window
-const MAX_REQUESTS_PER_WINDOW = 60;        // max GET attempts per IP per hour
-const RATE_KEY_TTL = RATE_WINDOW_SECONDS * 2; // KV TTL for rate limit entries
+// Rate limiting — sliding window, applied to both GETs and PUTs
+const RATE_WINDOW_SECONDS    = 60 * 60; // 1 hour window
+const MAX_REQUESTS_PER_WINDOW = 60;     // max requests per IP per hour (GET + PUT combined)
+const RATE_KEY_TTL = RATE_WINDOW_SECONDS * 2;
 
-// Google OAuth — set this to your Google Cloud OAuth Client ID when ready.
-// The worker uses it to verify ID tokens issued by Google.
+// KV data TTL — how long account data persists without a write.
+// Resets on every sync. 5 years covers long app inactivity periods.
+const KV_TTL = 60 * 60 * 24 * 1825; // 5 years in seconds
+
+// Google OAuth Client ID — used to verify ID tokens issued by Google.
 const GOOGLE_CLIENT_ID = '816310286560-4tgoor67vdu5jh65nlul0lr78rkrc5bc.apps.googleusercontent.com';
+
+// HMAC config — token accounts sign every request with an HMAC-SHA256
+// signature derived from their token via HKDF. The raw token never
+// travels as a bare bearer credential.
+// HMAC_REQUIRED: set to false during rollout to accept unsigned requests
+// from older clients; set to true once all clients are updated.
+const HMAC_REQUIRED = false; // flip to true after app.js is deployed
 
 // ── Google JWT verification ───────────────────────────────────────
 // Verifies a Google ID token by fetching Google's public JWKS, finding
@@ -122,7 +132,59 @@ async function verifyGoogleJWT(idToken) {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
+// ── HMAC helpers (token accounts) ────────────────────────────────
+// Token accounts sign every request with HMAC-SHA256. The signing key
+// is derived from the token via HKDF so the raw token never travels
+// over the wire as a bearer credential.
+//
+// Client sends two extra headers:
+//   X-Timestamp : unix ms string (within ±5 min of server time)
+//   X-Signature : base64url HMAC-SHA256 of "<method>:<token>:<timestamp>:<bodyHash>"
+//
+// deriveHmacKey(token) — derives a 256-bit signing key from the token
+// via HKDF-SHA256. Returns a CryptoKey for use with crypto.subtle.sign.
+async function deriveHmacKey(token) {
+  const enc      = new TextEncoder();
+  const keyMat   = await crypto.subtle.importKey(
+    'raw', enc.encode(token),
+    { name: 'HKDF' }, false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: enc.encode('reverence-hmac-v1'), info: enc.encode('request-signing') },
+    keyMat,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false, ['sign', 'verify']
+  );
+}
+
+// verifyHmacSignature(request, token, body) — verifies the X-Signature header.
+// Returns { ok: true } on success, { ok: false, reason } on failure.
+// Rejects requests older than 5 minutes to prevent replay attacks.
+async function verifyHmacSignature(request, token, body) {
+  const timestamp = request.headers.get('X-Timestamp') || '';
+  const signature = request.headers.get('X-Signature') || '';
+  if(!timestamp || !signature) return { ok: false, reason: 'Missing HMAC headers' };
+
+  // Reject requests outside ±5 minute window
+  const age = Math.abs(Date.now() - parseInt(timestamp, 10));
+  if(age > 5 * 60 * 1000) return { ok: false, reason: 'Request timestamp expired' };
+
+  // Hash the body for the signing input
+  const bodyHash = Array.from(
+    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body || '')))
+  ).map(b => b.toString(16).padStart(2,'0')).join('');
+
+  const message = `${request.method.toUpperCase()}:${token}:${timestamp}:${bodyHash}`;
+
+  try {
+    const key      = await deriveHmacKey(token);
+    const sigBytes = Uint8Array.from(atob(signature.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+    const valid    = await crypto.subtle.verify('HMAC', key, sigBytes, new TextEncoder().encode(message));
+    return valid ? { ok: true } : { ok: false, reason: 'Invalid signature' };
+  } catch(err) {
+    return { ok: false, reason: 'Signature verification error' };
+  }
+}
 function respond(body, status = 200, extraHeaders = {}) {
   return new Response(body, {
     status,
@@ -162,6 +224,7 @@ function checkOrigin(request) {
 }
 
 // Per-IP rate limiting using KV as a counter store.
+// Applied to both GET and PUT requests.
 // Returns { allowed: bool, remaining: number }
 async function checkRateLimit(env, ip) {
   const key     = `rl:${ip}`;
@@ -307,7 +370,7 @@ export default {
 
         // Atomic-ish: write new key first, then tombstone old key
         await env.REVERENCE_KV.put(kvKey, JSON.stringify(parsed), {
-          expirationTtl: 60 * 60 * 24 * 365,
+          expirationTtl: KV_TTL,
         });
 
         // Tombstone old token — write a migration record so any remaining
@@ -341,23 +404,55 @@ export default {
         return respondText('Invalid token format', 400, cors);
       }
 
-      // ── Rate limiting (GET only — writes require knowing the token) ──
-      if(method === 'GET') {
-        const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-        const { allowed, remaining } = await checkRateLimit(env, ip);
+      // ── Rate limiting (GET + PUT) ─────────────────────────────────
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const { allowed, remaining } = await checkRateLimit(env, ip);
+      if(!allowed) {
+        return respondText('Too many requests — try again later.', 429, {
+          ...cors,
+          'Retry-After':           String(RATE_WINDOW_SECONDS),
+          'X-RateLimit-Limit':     String(MAX_REQUESTS_PER_WINDOW),
+          'X-RateLimit-Remaining': '0',
+        });
+      }
 
-        if(!allowed) {
-          return respondText('Too many requests — try again later.', 429, {
-            ...cors,
-            'Retry-After': String(RATE_WINDOW_SECONDS),
-            'X-RateLimit-Limit':     String(MAX_REQUESTS_PER_WINDOW),
-            'X-RateLimit-Remaining': '0',
-          });
+      // ── Google account credential check ───────────────────────────
+      // Google-keyed KV entries (google:<sub>) require a valid ID token
+      // in the Authorization header on every read and write.
+      // This ensures the Google auth benefit isn't undermined by an
+      // open /kv/google:<sub> endpoint.
+      const isGoogleKey = token.startsWith('google:');
+      if(isGoogleKey) {
+        const authHeader = request.headers.get('Authorization') || '';
+        const idToken    = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+        if(!idToken) {
+          return respond(JSON.stringify({ error: 'Authorization required' }), 401, cors);
         }
+        const payload = await verifyGoogleJWT(idToken);
+        if(!payload) {
+          return respond(JSON.stringify({ error: 'Invalid or expired Google token' }), 401, cors);
+        }
+        // Verify the token in the URL matches the verified sub claim
+        if(token !== `google:${payload.sub}`) {
+          return respond(JSON.stringify({ error: 'Token mismatch' }), 403, cors);
+        }
+      }
 
+      // ── HMAC verification (token accounts) ───────────────────────
+      // Token accounts must sign requests with HMAC-SHA256 derived from
+      // their token via HKDF. Raw token never travels as bearer credential.
+      // HMAC_REQUIRED flag allows gradual rollout — set to true once
+      // all clients are updated to send signatures.
+      if(!isGoogleKey) {
+        const hmacResult = await verifyHmacSignature(request, token, '');
+        if(!hmacResult.ok && HMAC_REQUIRED) {
+          return respond(JSON.stringify({ error: `HMAC verification failed: ${hmacResult.reason}` }), 401, cors);
+        }
+      }
+
+      // ── GET: retrieve data ────────────────────────────────────────
+      if(method === 'GET') {
         // ── Migration tombstone check ─────────────────────────────
-        // If this token account was migrated to Google auth, return a
-        // clear signal so the app can prompt the user to sign in with Google.
         const migratedTo = await env.REVERENCE_KV.get(`migrated:${token}`, { type: 'text' });
         if(migratedTo) {
           return respond(JSON.stringify({ migrated: true, authMethod: 'google' }), 410, {
@@ -367,10 +462,6 @@ export default {
         }
 
         // ── Legacy forwarding pointer check ───────────────────────
-        // When a token is migrated to a new secure token, a pointer is
-        // written at "legacy:<oldtoken>" containing the new token string.
-        // Subsequent devices using the old token are transparently served
-        // the new token's data and told to adopt the new token via header.
         const forwardTo = await env.REVERENCE_KV.get(`legacy:${token}`, { type: 'text' });
         if(forwardTo) {
           const newData = await env.REVERENCE_KV.get(forwardTo, { type: 'text' });
@@ -381,14 +472,11 @@ export default {
               'X-RateLimit-Remaining': String(remaining),
             });
           }
-          // Pointer exists but new key is gone — fall through to 404
         }
 
         // Normal fetch
         const data = await env.REVERENCE_KV.get(token, { type: 'text' });
-        if(data === null) {
-          return respondText('Not found', 404, cors);
-        }
+        if(data === null) return respondText('Not found', 404, cors);
         return respond(data, 200, {
           ...cors,
           'X-RateLimit-Remaining': String(remaining),
@@ -401,38 +489,37 @@ export default {
         let parsed;
         try {
           body   = await request.text();
-          parsed = JSON.parse(body); // validate JSON before storing
+          parsed = JSON.parse(body);
         } catch {
           return respondText('Invalid JSON', 400, cors);
         }
 
-        // Cap payload at 5 MB (KV limit is 25 MB but let's be safe)
         if(body.length > 5 * 1024 * 1024) {
           return respondText('Payload too large', 413, cors);
         }
 
+        // Re-verify HMAC against the actual body now that we have it.
+        // The earlier check used empty body (for GET); PUT needs the real body.
+        if(!isGoogleKey) {
+          const hmacResult = await verifyHmacSignature(request, token, body);
+          if(!hmacResult.ok && HMAC_REQUIRED) {
+            return respond(JSON.stringify({ error: `HMAC verification failed: ${hmacResult.reason}` }), 401, cors);
+          }
+        }
+
         // ── Legacy forwarding pointer ──────────────────────────────
-        // If the app signals a token migration by including _legacyToken
-        // in the payload, write a forwarding pointer at "legacy:<oldtoken>"
-        // pointing to the new token. The pointer TTL is 90 days — long
-        // enough for all devices to naturally cycle through and self-migrate.
-        // Strip _legacyToken from the stored data blob before saving.
         const legacyToken = parsed._legacyToken;
         if(legacyToken && typeof legacyToken === 'string' &&
            /^(google:\d{10,30}|[a-zA-Z0-9_-]{8,128})$/.test(legacyToken) &&
            legacyToken !== token) {
           delete parsed._legacyToken;
           body = JSON.stringify(parsed);
-
           await env.REVERENCE_KV.put(`legacy:${legacyToken}`, token, {
             expirationTtl: 60 * 60 * 24 * 90, // 90 days
           });
         }
 
-        await env.REVERENCE_KV.put(token, body, {
-          expirationTtl: 60 * 60 * 24 * 365, // 1 year
-        });
-
+        await env.REVERENCE_KV.put(token, body, { expirationTtl: KV_TTL });
         return respond(JSON.stringify({ ok: true }), 200, cors);
       }
 
