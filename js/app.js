@@ -439,7 +439,9 @@ async function handleGoogleCredential(idToken) {
 
   let remote = null;
   try {
-    const res = await fetch(`${base}/kv/${encodeURIComponent(kvKey)}`);
+    const res = await fetch(`${base}/kv/${encodeURIComponent(kvKey)}`, {
+      headers: { 'Authorization': `Bearer ${idToken}` },
+    });
     if(res.ok) remote = await res.json();
   } catch { /* new account */ }
 
