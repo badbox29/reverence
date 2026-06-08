@@ -53,7 +53,7 @@ const ALLOWED_ORIGINS = [
 
 // Rate limiting — sliding window, applied to both GETs and PUTs
 const RATE_WINDOW_SECONDS    = 60 * 60; // 1 hour window
-const MAX_REQUESTS_PER_WINDOW = 60;     // max requests per IP per hour (GET + PUT combined)
+const MAX_REQUESTS_PER_WINDOW = 300;     // max requests per IP per hour (GET + PUT combined)
 const RATE_KEY_TTL = RATE_WINDOW_SECONDS * 2;
 
 // KV data TTL — how long account data persists without a write.
