@@ -544,15 +544,31 @@ async function signOutGoogle() {
 }
 
 // verifyGoogleSession() — called at boot for Google accounts.
-// Re-verifies the stored ID token against the worker.
-// Returns true if valid, false if expired (triggers re-auth prompt).
+// First checks the stored JWT's exp claim locally — no network needed
+// if the token is still valid with >5 minutes remaining.
+// Only hits the worker when the token is near/past expiry.
+// Returns true if session is usable, false if re-auth is required.
 async function verifyGoogleSession() {
   if(!isGoogleAccount()) return false;
-  const base    = workerBase();
   const idToken = KV.get('google_id_token');
-  if(!base || !idToken) return false;
+  if(!idToken) return false;
 
+  // Decode JWT payload locally to check exp — no signature verification needed here,
+  // just reading the expiry claim to avoid unnecessary network calls.
   try {
+    const parts   = idToken.split('.');
+    if(parts.length !== 3) return false;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    const now     = Math.floor(Date.now() / 1000);
+    const exp     = payload.exp || 0;
+
+    // Token still has more than 5 minutes — accept without a network call
+    if(exp - now > 5 * 60) return true;
+
+    // Token is expired or nearly expired — re-verify via worker
+    const base = workerBase();
+    if(!base) return false;
+
     const res  = await fetch(`${base}/auth/verify`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -560,17 +576,11 @@ async function verifyGoogleSession() {
     });
     const data = await res.json();
     if(res.ok && data.ok) {
-      // Refresh profile in case name/picture changed
-      if(data.profile) {
-        D.linkedGoogle = data.profile;
-        save();
-      }
+      if(data.profile) { D.linkedGoogle = data.profile; save(); }
       return true;
     }
     return false;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 const today        = () => new Date().toISOString().split('T')[0];
 const fmtDate      = d  => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
@@ -2127,12 +2137,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     if(isGoogleAccount() && workerBase()) {
       const sessionValid = await verifyGoogleSession();
       if(!sessionValid) {
-        // Token expired — show a gentle re-auth prompt after render
-        setTimeout(() => {
-          toast('Your Google session has expired — please sign in again.');
-          showAccountSetup();
-        }, 1000);
-        return; // don't attempt sync with expired session
+        // Token expired — show targeted re-auth prompt that skips
+        // the full wizard and doesn't ask for the worker URL again.
+        setTimeout(() => showGoogleReauth(), 800);
+        return;
       }
     }
 
@@ -2591,6 +2599,55 @@ function showSetupFreshGoogle(name, workerUrl, studio) {
 }
 
 // ── Token → Google upgrade (called from Settings) ─────────────────
+// ── Google re-auth (session expired) ─────────────────────────────
+// Shown when a returning Google user's ID token has expired.
+// Unlike the full wizard, this screen skips worker URL entry entirely
+// — the URL is already known from stored account data.
+// On success, loads the existing account without touching the wizard flow.
+function showGoogleReauth() {
+  const name    = D.linkedGoogle?.name || D.userName || '';
+  const email   = D.linkedGoogle?.email || '';
+  const picture = D.linkedGoogle?.picture || '';
+
+  setupScreen('Welcome Back', `
+    <p class="f13 lh muted" style="margin-bottom:1.25rem;">
+      Your session has expired. Sign in again to continue.
+    </p>
+    ${picture || name ? `
+      <div class="auth-google-info" style="margin-bottom:1.25rem;">
+        ${picture ? `<img src="${esc(picture)}" class="auth-google-avatar" alt="">` : ''}
+        <div>
+          ${name ? `<div class="f13 fw5" style="color:var(--cream);">${esc(name)}</div>` : ''}
+          ${email ? `<div class="f12 muted">${esc(email)}</div>` : ''}
+        </div>
+      </div>` : ''}
+    <div id="reauth-google-container" style="width:100%;min-height:44px;"></div>
+    <div id="reauth-status" style="min-height:1.3rem;font-size:.82rem;margin-top:.5rem;color:var(--red);"></div>
+    <div class="row gap-8 mt-8" style="justify-content:flex-start;">
+      <button class="btn btn-ghost btn-sm" id="btn-reauth-different">Use a different account</button>
+    </div>
+  `);
+
+  // "Use a different account" — goes to full wizard
+  document.getElementById('btn-reauth-different').addEventListener('click', () => {
+    closeModal('modal-account-setup');
+    showAccountSetup();
+  });
+
+  const container = document.getElementById('reauth-google-container');
+  const statusEl  = document.getElementById('reauth-status');
+
+  signInWithGoogle(container).then(result => {
+    if(result?.ok) {
+      closeModal('modal-account-setup');
+      startSyncPing();
+      // No toast needed — user just sees the app resume normally
+    } else {
+      statusEl.textContent = 'Sign-in cancelled — try again or use a different account.';
+    }
+  });
+}
+
 function showGoogleUpgradeFlow() {
   closeModal('modal-settings');
   setupScreen('Upgrade to Google Sign-In', `
