@@ -1259,7 +1259,7 @@ document.getElementById('btn-submit-log').addEventListener('click', function(){
   this.dataset.editId = '';
 });
 
-document.getElementById('btn-log-session').addEventListener('click', openLogModal);
+document.getElementById('btn-log-session').addEventListener('click', () => openLogModal());
 
 // ── Goals ─────────────────────────────────────────────────────────
 function openGoalModal() {
