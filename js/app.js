@@ -1871,6 +1871,9 @@ document.getElementById('modal-settings').addEventListener('click', e => {
   if(e.target.closest('#btn-upgrade-to-google')) {
     setTimeout(() => { closeModal('modal-settings'); showGoogleUpgradeFlow(); }, 0);
   }
+  if(e.target.closest('#btn-guest-switch-account')) {
+    setTimeout(() => { closeModal('modal-settings'); showGuestSwitchConfirm(); }, 0);
+  }
 });
 
 document.getElementById('btn-submit-switch-account').addEventListener('click', async ()=>{
@@ -2678,6 +2681,41 @@ function showGoogleUpgradeFlow() {
   document.getElementById('btn-upgrade-test').addEventListener('click', unlockUpgradeGoogle);
   // Pre-test if worker URL already set
   if(D.workerUrl) unlockUpgradeGoogle();
+}
+
+// ── Guest switch account ──────────────────────────────────────────
+// Shown when a guest clicks "Switch Account" in Settings.
+// Confirms before wiping local data, then restarts the wizard.
+// For guests there are no server-side credentials to revoke —
+// clearing localStorage is the complete sign-out.
+function showGuestSwitchConfirm() {
+  setupScreen('Switch Account', `
+    <p class="f13 lh muted" style="margin-bottom:1rem;">
+      Switching accounts will clear all guest data on this device.
+      This cannot be undone — any entries or progress you've made as a
+      guest will be lost unless you create an account first.
+    </p>
+    <div class="form-actions" style="flex-direction:column;gap:.65rem;">
+      <button class="btn btn-primary w100" id="btn-guest-switch-confirm" style="justify-content:center;">
+        Clear data and switch
+      </button>
+      <button class="btn btn-ghost w100" id="btn-guest-switch-cancel" style="justify-content:center;">
+        Cancel
+      </button>
+    </div>
+  `);
+
+  document.getElementById('btn-guest-switch-cancel').addEventListener('click', () => {
+    closeModal('modal-account-setup');
+  });
+
+  document.getElementById('btn-guest-switch-confirm').addEventListener('click', () => {
+    // Clear all app localStorage keys
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('rev_'))
+      .forEach(k => localStorage.removeItem(k));
+    location.reload();
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════
