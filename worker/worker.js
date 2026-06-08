@@ -270,7 +270,7 @@ export default {
         }
 
         // Validate old token format
-        if(!/^[a-zA-Z0-9_-]{8,128}$/.test(oldToken)) {
+        if(!/^(google:\d{10,30}|[a-zA-Z0-9_-]{8,128})$/.test(oldToken)) {
           return respond(JSON.stringify({ error: 'Invalid token format' }), 400, cors);
         }
 
@@ -335,8 +335,8 @@ export default {
       // Token validation — accepts:
       //   Legacy:  base-36 alphanumeric, 8–16 chars  (old Math.random() tokens)
       //   Secure:  base64url [A-Za-z0-9_-], 22 chars (new crypto.getRandomValues() tokens)
-      // Both patterns share the same character set so one regex covers both:
-      const tokenValid = /^[a-zA-Z0-9_-]{8,128}$/.test(token);
+      //   Google:  "google:" + numeric sub claim, e.g. google:108676658761373445070
+      const tokenValid = /^(google:\d{10,30}|[a-zA-Z0-9_-]{8,128})$/.test(token);
       if(!tokenValid) {
         return respondText('Invalid token format', 400, cors);
       }
@@ -419,7 +419,7 @@ export default {
         // Strip _legacyToken from the stored data blob before saving.
         const legacyToken = parsed._legacyToken;
         if(legacyToken && typeof legacyToken === 'string' &&
-           /^[a-zA-Z0-9_-]{8,128}$/.test(legacyToken) &&
+           /^(google:\d{10,30}|[a-zA-Z0-9_-]{8,128})$/.test(legacyToken) &&
            legacyToken !== token) {
           delete parsed._legacyToken;
           body = JSON.stringify(parsed);
