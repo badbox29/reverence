@@ -2504,6 +2504,11 @@ function showGoogleUpgradeFlow() {
   const statusEl     = document.getElementById('upgrade-status');
   const googleCtr    = document.getElementById('upgrade-google-container');
 
+  // Capture the token NOW before signInWithGoogle runs —
+  // handleGoogleCredential overwrites D.userToken with the Google KV key
+  // so reading it after sign-in completes gives the wrong value.
+  const oldToken = D.userToken;
+
   // Wire Google button — completes migration on success
   signInWithGoogle(googleCtr).then(async result => {
     if(!result?.ok) {
@@ -2515,9 +2520,8 @@ function showGoogleUpgradeFlow() {
     }
 
     // Perform server-side migration
-    const base     = workerBase();
-    const idToken  = KV.get('google_id_token');
-    const oldToken = D.userToken;
+    const base    = workerBase();
+    const idToken = KV.get('google_id_token');
 
     statusEl.style.color = 'var(--gold2)';
     statusEl.textContent = 'Migrating account…';
