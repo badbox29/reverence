@@ -427,9 +427,8 @@ async function signInWithGoogle(buttonEl) {
 
   return new Promise(resolve => {
     google.accounts.id.initialize({
-      client_id:             GOOGLE_CLIENT_ID,
-      use_fedcm_for_prompt:  true,  // opt into FedCM — silences deprecation warning
-      callback: async (response) => {
+      client_id: GOOGLE_CLIENT_ID,
+      callback:  async (response) => {
         const result = await handleGoogleCredential(response.credential);
         resolve(result);
       },
@@ -437,13 +436,15 @@ async function signInWithGoogle(buttonEl) {
 
     if(buttonEl) {
       // Render a real Google-branded button into the provided element.
-      // This is the most reliable path across all browsers.
+      // ux_mode: 'popup' gives the familiar account-picker experience today
+      // and will transition naturally when Google enforces FedCM/passkeys.
       google.accounts.id.renderButton(buttonEl, {
-        theme:  'filled_black',
-        size:   'large',
-        width:  buttonEl.offsetWidth || 280,
-        text:   'continue_with',
-        locale: 'en',
+        theme:   'filled_black',
+        size:    'large',
+        width:   buttonEl.offsetWidth || 280,
+        text:    'continue_with',
+        locale:  'en',
+        ux_mode: 'popup',
       });
     } else {
       // No element provided — attempt One Tap as fallback
