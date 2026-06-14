@@ -453,6 +453,7 @@ async function handleGoogleCredential(idToken) {
     merged.workerUrl    = oldWorkerUrl || merged.workerUrl;
     merged.authMethod   = 'google';
     merged.linkedGoogle = profile;
+    merged.userToken    = kvKey; // must be set explicitly — stored profile never contains this field
     applyData(merged);
   } else {
     // New Google account — init fresh data with Google auth fields
