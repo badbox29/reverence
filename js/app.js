@@ -1873,9 +1873,29 @@ document.getElementById('btn-manual-sync').addEventListener('click', async ()=>{
 });
 
 document.getElementById('btn-switch-account').addEventListener('click', ()=>{
-  document.getElementById('switch-token-input').value='';
-  document.getElementById('switch-account-status').textContent='';
-  openModal('modal-switch-account');
+  closeModal('modal-settings');
+  if(D?.authMethod === 'guest') {
+    // Guest data is local-only — confirm before wiping
+    setTimeout(() => showGuestSwitchConfirm(), 0);
+  } else {
+    // Token/Google — data is safe on the worker; go straight to welcome
+    setTimeout(async () => {
+      if(isGoogleAccount()) {
+        const email = D.linkedGoogle?.email;
+        if(window.google?.accounts?.id) {
+          google.accounts.id.cancel();
+          if(email) google.accounts.id.revoke(email, () => {});
+        }
+        KV.set('google_id_token', null);
+      }
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('rev_'))
+        .forEach(k => localStorage.removeItem(k));
+      D = initData();
+      applyTheme();
+      showAccountSetup();
+    }, 0);
+  }
 });
 
 // Use event delegation on the settings modal for dynamically-shown buttons.
@@ -1894,22 +1914,6 @@ document.getElementById('modal-settings').addEventListener('click', e => {
   }
 });
 
-document.getElementById('btn-submit-switch-account').addEventListener('click', async ()=>{
-  const token = document.getElementById('switch-token-input').value.trim();
-  const statusEl = document.getElementById('switch-account-status');
-  statusEl.style.color='var(--gold2)';
-  statusEl.textContent='Looking up account…';
-  const result = await switchToToken(token);
-  if(result.ok){
-    closeModal('modal-switch-account');
-    closeModal('modal-settings');
-    startSyncPing();
-    toast('Account switched ✓');
-  } else {
-    statusEl.style.color='var(--red)';
-    statusEl.textContent=result.msg;
-  }
-});
 document.getElementById('btn-submit-injury').addEventListener('click',()=>{
   const desc=val('inj-desc'); if(!desc) return;
   D.injuryLog.push({
