@@ -133,6 +133,46 @@
       </div>
     </section>
 
+    <!-- Backup Nudge -->
+    <div class="backup-nudge" id="backup-nudge" hidden>
+      <div class="nudge-body">
+        <div class="nudge-title">You have <span class="nudge-count">0</span> sessions worth keeping.</div>
+        <p class="nudge-text">
+          As a guest, your journal lives only in this browser. Clearing site data
+          or resetting this device would take it with them. A backup file takes a second.
+        </p>
+      </div>
+      <div class="nudge-actions">
+        <button class="btn btn-primary btn-sm" id="btn-nudge-export">Download Backup</button>
+        <button class="btn btn-ghost btn-sm" id="btn-nudge-dismiss">Not now</button>
+      </div>
+    </div>
+
+    <!-- Consistency Heatmap -->
+    <section class="heatmap-section" id="heatmap-section" hidden>
+      <div class="heatmap-head">
+        <div class="heatmap-label">✦ Showing up</div>
+        <div class="heatmap-nav">
+          <button class="heatmap-nav-btn" id="heatmap-prev" aria-label="Previous year">‹</button>
+          <span class="heatmap-year" id="heatmap-year"></span>
+          <button class="heatmap-nav-btn" id="heatmap-next" aria-label="Next year">›</button>
+        </div>
+      </div>
+      <div class="heatmap-scroll">
+        <div class="heatmap-grid-wrap" id="heatmap-grid"></div>
+      </div>
+      <div class="heatmap-foot">
+        <span class="f12 muted" id="heatmap-summary"></span>
+        <span class="heatmap-legend">
+          <span class="f11 muted">Less</span>
+          <span class="hm-cell hm-l0"></span><span class="hm-cell hm-l1"></span>
+          <span class="hm-cell hm-l2"></span><span class="hm-cell hm-l3"></span>
+          <span class="hm-cell hm-l4"></span>
+          <span class="f11 muted">More</span>
+        </span>
+      </div>
+    </section>
+
     <!-- Feed Header -->
     <div class="feed-header">
       <h2 class="feed-title">Your Journal</h2>
