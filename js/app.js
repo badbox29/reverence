@@ -296,6 +296,7 @@ function applyData(merged) {
   renderSpotlight();
   renderSidebar();
   renderFeed();
+  renderHeatmap(); renderBackupNudge();
 }
 
 // Save locally; stamp lastModified; push to worker; mark dirty if push fails
@@ -469,6 +470,7 @@ async function handleGoogleCredential(idToken) {
     renderSpotlight();
     renderSidebar();
     renderFeed();
+    renderHeatmap(); renderBackupNudge();
   }
 
   // Store the ID token for session verification at next boot
@@ -961,6 +963,146 @@ function renderSidebar() {
   }
 }
 
+
+
+// ── Backup nudge ──────────────────────────────────────────────────
+// Guest data is localStorage and nothing else. Once someone has enough
+// entries to genuinely regret losing, prompt once. Dismissible, never again.
+const NUDGE_MIN_ENTRIES = 20;
+
+function renderBackupNudge() {
+  const el = document.getElementById('backup-nudge');
+  if(!el) return;
+  const show = isGuest()
+    && (D.entries||[]).length >= NUDGE_MIN_ENTRIES
+    && !KV.get('last_export')
+    && !KV.get('backup_nudge_dismissed');
+  el.hidden = !show;
+  if(show) el.querySelector('.nudge-count').textContent = D.entries.length;
+}
+
+document.getElementById('btn-nudge-export').addEventListener('click', ()=>{
+  exportJSON();
+  renderBackupNudge();
+});
+document.getElementById('btn-nudge-dismiss').addEventListener('click', ()=>{
+  KV.set('backup_nudge_dismissed', true);
+  renderBackupNudge();
+});
+
+// ── Consistency heatmap ───────────────────────────────────────────
+// GitHub-style year grid. Answers "am I showing up" better than the streak
+// counter, which reads zero the day after a rest day.
+let heatmapYear = new Date().getFullYear();
+
+const HM_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Minutes → intensity bucket. Thresholds are per-day totals, not entry counts,
+// so a single 3-hour rehearsal outranks three 20-minute stretches.
+function hmLevel(mins) {
+  if(!mins)       return 0;
+  if(mins <  45)  return 1;
+  if(mins <  90)  return 2;
+  if(mins < 180)  return 3;
+  return 4;
+}
+
+function renderHeatmap() {
+  const section = document.getElementById('heatmap-section');
+  if(!section) return;
+
+  // Nothing to show until there's some history worth looking at
+  if(!D.entries.length){ section.hidden = true; return; }
+  section.hidden = false;
+
+  const years = [...new Set(D.entries.map(e=>e.date.slice(0,4)))].map(Number).sort();
+  const minYear = Math.min(...years, new Date().getFullYear());
+  const maxYear = Math.max(...years, new Date().getFullYear());
+  if(heatmapYear < minYear) heatmapYear = minYear;
+  if(heatmapYear > maxYear) heatmapYear = maxYear;
+
+  document.getElementById('heatmap-year').textContent = heatmapYear;
+  document.getElementById('heatmap-prev').disabled = heatmapYear <= minYear;
+  document.getElementById('heatmap-next').disabled = heatmapYear >= maxYear;
+
+  // Aggregate minutes and entry counts per day for this year
+  const byDay = {};
+  D.entries.forEach(e=>{
+    if(!e.date || !e.date.startsWith(String(heatmapYear))) return;
+    if(!byDay[e.date]) byDay[e.date] = { mins:0, count:0 };
+    byDay[e.date].mins  += (e.duration||0);
+    byDay[e.date].count += 1;
+  });
+
+  // Grid runs Sunday-first from the Sunday on or before Jan 1
+  const jan1 = new Date(heatmapYear, 0, 1);
+  const start = new Date(jan1);
+  start.setDate(start.getDate() - start.getDay());
+  const dec31 = new Date(heatmapYear, 11, 31);
+  const todayStr = today();
+
+  const weeks = [];
+  const monthLabels = [];
+  let cursor = new Date(start);
+  let lastMonth = -1;
+
+  while(cursor <= dec31 || cursor.getDay() !== 0) {
+    const week = [];
+    for(let d=0; d<7; d++){
+      const y=cursor.getFullYear(), m=cursor.getMonth(), day=cursor.getDate();
+      const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const inYear = y === heatmapYear;
+      const rec = byDay[ds];
+      week.push({
+        ds, inYear,
+        future: ds > todayStr,
+        level: inYear ? hmLevel(rec?.mins||0) : -1,
+        mins: rec?.mins||0,
+        count: rec?.count||0,
+      });
+      // Label a column with the month that owns its first day
+      if(d===0 && inYear && m !== lastMonth){
+        monthLabels.push({ col: weeks.length, label: HM_MONTHS[m] });
+        lastMonth = m;
+      }
+      cursor.setDate(cursor.getDate()+1);
+    }
+    weeks.push(week);
+    if(cursor > dec31 && cursor.getDay() === 0) break;
+  }
+
+  const cells = weeks.map(week=>
+    `<div class="hm-col">${week.map(c=>{
+      if(!c.inYear) return '<span class="hm-cell hm-blank"></span>';
+      if(c.future)  return '<span class="hm-cell hm-future"></span>';
+      const label = c.count
+        ? `${fmtDate(c.ds)} \u2014 ${c.count} session${c.count===1?'':'s'}, ${(c.mins/60).toFixed(1)}h`
+        : `${fmtDate(c.ds)} \u2014 rest`;
+      return `<span class="hm-cell hm-l${c.level}" title="${esc(label)}"></span>`;
+    }).join('')}</div>`).join('');
+
+  const labels = monthLabels.map(m=>
+    `<span class="hm-month" style="grid-column:${m.col+1}">${m.label}</span>`).join('');
+
+  document.getElementById('heatmap-grid').innerHTML = `
+    <div class="hm-months" style="grid-template-columns:repeat(${weeks.length},var(--hm-size));">${labels}</div>
+    <div class="hm-cols">${cells}</div>`;
+
+  // Summary line
+  const daysActive = Object.keys(byDay).length;
+  const totalMins  = Object.values(byDay).reduce((a,v)=>a+v.mins,0);
+  const isCurrent  = heatmapYear === new Date().getFullYear();
+  const elapsed    = isCurrent
+    ? Math.floor((new Date() - jan1)/86400000)+1
+    : (new Date(heatmapYear,11,31) - jan1)/86400000+1;
+  const pct = elapsed ? Math.round(daysActive/elapsed*100) : 0;
+  document.getElementById('heatmap-summary').textContent =
+    `${daysActive} day${daysActive===1?'':'s'} danced \u00b7 ${(totalMins/60).toFixed(0)}h \u00b7 ${pct}% of days${isCurrent?' so far':''}`;
+}
+
+document.getElementById('heatmap-prev').addEventListener('click', ()=>{ heatmapYear--; renderHeatmap(); });
+document.getElementById('heatmap-next').addEventListener('click', ()=>{ heatmapYear++; renderHeatmap(); });
+
 // ── Spotlight ─────────────────────────────────────────────────────
 // ── Spotlight ─────────────────────────────────────────────────────
 // Chosen once per calendar day and cached in localStorage.
@@ -1261,7 +1403,7 @@ document.getElementById('btn-delete-entry').addEventListener('click', async ()=>
   });
   if(!ok) return;
   D.entries=D.entries.filter(e=>e.id!==viewEntryId);
-  save(); renderFeed(); renderSidebar(); closeModal('modal-view-entry'); toast('Entry deleted.');
+  save(); renderFeed(); renderSidebar(); renderHeatmap(); renderBackupNudge(); closeModal('modal-view-entry'); toast('Entry deleted.');
 });
 
 function editEntry(id) {
@@ -1365,7 +1507,7 @@ document.getElementById('btn-submit-log').addEventListener('click', function(){
   const beforeBadges = [...D.badges];
   checkBadges();
   const newBadges = D.badges.filter(id=>!beforeBadges.includes(id));
-  save(); renderFeed(); renderSidebar(); renderSpotlight();
+  save(); renderFeed(); renderSidebar(); renderSpotlight(); renderHeatmap(); renderBackupNudge();
   closeModal('modal-log');
   if(newBadges.length) {
     const b = BADGE_DEFS.find(x=>x.id===newBadges[0]);
@@ -1816,6 +1958,40 @@ function openSkillsModal() {
   renderSkillsModal(); openModal('modal-skills');
 }
 
+
+// ── Skill history ─────────────────────────────────────────────────
+// `history: [{level, date}]` has been recorded on every level change since
+// v0.4 but only surfaced in Year in Review. Render it inline instead.
+function skillSparkline(history) {
+  const h = (history||[]).filter(p=>p && typeof p.level==='number');
+  if(h.length < 2) return '';
+  const W=68, H=18, P=2;
+  const pts = h.map((p,i)=>{
+    const x = P + (i/(h.length-1)) * (W-P*2);
+    const y = H-P - (p.level/5) * (H-P*2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last = h[h.length-1];
+  const lx = P + (W-P*2), ly = H-P - (last.level/5)*(H-P*2);
+  return `<svg class="skill-spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">
+    <polyline points="${pts.join(' ')}" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2" fill="currentColor"/>
+  </svg>`;
+}
+
+function skillHistoryLine(s) {
+  const h = s.history||[];
+  if(!h.length) return '';
+  const last = h[h.length-1];
+  const prev = h.length > 1 ? h[h.length-2] : null;
+  const from = prev ? prev.level : 0;
+  if(from === last.level) return '';
+  const dir = last.level > from ? '\u2192' : '\u2193';
+  const month = new Date(last.date+'T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  return `<span class="skill-history-line">Level ${from} ${dir} ${last.level} in ${month}</span>`;
+}
+
 function renderSkillsModal() {
   document.getElementById('skills-style-chips').innerHTML=
     D.activeStyles.map(s=>`<span class="chip${skillsStyle===s?' on':''}" onclick="setSkillsStyle('${s}')">${s}</span>`).join('');
@@ -1837,9 +2013,13 @@ function renderSkillsModal() {
         <span class="f13 text-gold">${'★'.repeat(s.level)}${'☆'.repeat(5-s.level)}</span>
       </div>
       <div class="prog-track mb-8" style="height:4px;"><div class="prog-fill" style="width:${s.level/5*100}%"></div></div>
-      <div class="stars">
-        ${[1,2,3,4,5].map(n=>`<span class="star${n<=s.level?' lit':''}" onclick="setSkill('${skillsStyle}','${s.id}',${n})">★</span>`).join('')}
+      <div class="row sb" style="align-items:center;gap:.75rem;">
+        <div class="stars">
+          ${[1,2,3,4,5].map(n=>`<span class="star${n<=s.level?' lit':''}" onclick="setSkill('${skillsStyle}','${s.id}',${n})">★</span>`).join('')}
+        </div>
+        ${skillSparkline(s.history)}
       </div>
+      ${skillHistoryLine(s)}
     </div>`).join('');
 }
 
@@ -1972,6 +2152,72 @@ function openSettingsModal() {
   openModal('modal-settings');
 }
 
+
+// ── Injury context ────────────────────────────────────────────────
+// The injury log was an island — it referenced no entries and no seasons.
+// This reconstructs the training window around an injury so the log can
+// answer "what was I doing when this happened, and did I back off after?"
+const INJURY_WINDOW = 14; // days either side
+
+function injuryContext(inj) {
+  const shift = (ds, days) => {
+    const d = new Date(ds+'T12:00:00');
+    d.setDate(d.getDate()+days);
+    return d.toISOString().split('T')[0];
+  };
+  const before = shift(inj.date, -INJURY_WINDOW);
+  const after  = shift(inj.date,  INJURY_WINDOW);
+  const todayStr = today();
+
+  const sum = list => list.reduce((a,e)=>a+(e.duration||0),0)/60;
+  const priorEntries = D.entries.filter(e=>e.date >= before && e.date < inj.date);
+  const afterEntries = D.entries.filter(e=>e.date > inj.date && e.date <= after);
+
+  // Only compare once enough time has passed for the after-window to mean something
+  const daysSince = Math.floor((new Date(todayStr) - new Date(inj.date))/86400000);
+  const matured   = daysSince >= INJURY_WINDOW;
+
+  const season = D.seasons.find(s=>s.id===inj.seasonId)
+    // Fall back to date range for injuries logged before seasonId existed
+    || D.seasons.find(s=>s.startDate && s.endDate && inj.date >= s.startDate && inj.date <= s.endDate);
+
+  return {
+    season,
+    priorHrs: sum(priorEntries), priorCount: priorEntries.length,
+    afterHrs: sum(afterEntries), afterCount: afterEntries.length,
+    matured, daysSince,
+  };
+}
+
+
+function injuryContextHTML(inj) {
+  const c = injuryContext(inj);
+  if(!c.season && !c.priorCount && !c.afterCount) return '';
+
+  const delta = c.matured && c.priorHrs > 0
+    ? Math.round((c.afterHrs - c.priorHrs) / c.priorHrs * 100)
+    : null;
+  const deltaTag = delta === null ? ''
+    : `<span class="injury-delta ${delta < -5 ? 'down' : delta > 5 ? 'up' : 'flat'}">${
+        delta > 0 ? '+' : ''}${delta}% volume after</span>`;
+
+  return `
+    <div class="injury-context">
+      ${c.season ? `<div class="injury-context-season">During ${esc(c.season.name)}</div>` : ''}
+      <div class="injury-context-row">
+        <span class="injury-window">
+          <span class="injury-window-num">${c.priorHrs.toFixed(1)}h</span>
+          <span class="injury-window-label">${INJURY_WINDOW}d before</span>
+        </span>
+        <span class="injury-window">
+          <span class="injury-window-num">${c.matured ? c.afterHrs.toFixed(1)+'h' : '\u2014'}</span>
+          <span class="injury-window-label">${c.matured ? INJURY_WINDOW+'d after' : 'still recent'}</span>
+        </span>
+        ${deltaTag}
+      </div>
+    </div>`;
+}
+
 function renderInjuryLog() {
   const el = document.getElementById('injuries-list');
   if (!el) return;
@@ -1995,6 +2241,7 @@ function renderInjuryLog() {
       </div>
       ${inj.description ? `<div class="f13 lh" style="color:var(--muted2);margin-bottom:.35rem;">${esc(inj.description)}</div>` : ''}
       ${inj.treatment   ? `<div class="f12 lh muted"><em>Treatment:</em> ${esc(inj.treatment)}</div>` : ''}
+      ${injuryContextHTML(inj)}
     </div>
   `).join('');
 }
@@ -2052,7 +2299,7 @@ function buildExportPayload() {
   Object.keys(D).forEach(k => { if(!EXPORT_STRIP_FIELDS.includes(k)) content[k] = D[k]; });
   return {
     formatVersion: EXPORT_FORMAT_VERSION,
-    appVersion:    KV.get('app_version') || '0.5',
+    appVersion:    KV.get('app_version') || '0.6',
     exportedAt:    new Date().toISOString(),
     entryCount:    (D.entries||[]).length,
     data:          content,
@@ -2249,12 +2496,15 @@ document.getElementById('modal-settings').addEventListener('click', e => {
 
 document.getElementById('btn-submit-injury').addEventListener('click',()=>{
   const desc=val('inj-desc'); if(!desc) return;
+  const activeSeason = D.seasons.find(s=>s.active && !s.archived);
   D.injuryLog.push({
     id:uid(), date:today(),
     area:      document.getElementById('inj-area').value,
     status:    document.getElementById('inj-status').value,
     description: desc,
     treatment:   val('inj-treatment'),
+    // Link to whatever season was running — gives the entry a training context
+    seasonId:  activeSeason?.id || '',
   });
   save(); renderInjuryLog(); closeModal('modal-injury');
   toast('Injury logged 🩹');
@@ -2451,7 +2701,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const stored = KV.get('appdata');
 
   // Clear spotlight cache only when app version changes (not every boot)
-  const APP_VERSION = '0.5';
+  const APP_VERSION = '0.6';
   const cachedVersion = KV.get('app_version');
   if(cachedVersion !== APP_VERSION) {
     KV.set('spotlight_cache', null);
@@ -2468,6 +2718,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     renderSpotlight();
     renderSidebar();
     renderFeed();
+    renderHeatmap(); renderBackupNudge();
 
     // ── Google session verification ────────────────────────────────
     // For Google accounts, verify the stored ID token is still valid
@@ -2616,6 +2867,7 @@ function showSetupGuest() {
     renderSpotlight();
     renderSidebar();
     renderFeed();
+    renderHeatmap(); renderBackupNudge();
     closeModal('modal-account-setup');
     toast('Exploring as guest — create an account anytime from Settings 🩰');
   });
@@ -2865,7 +3117,7 @@ function showSetupFresh() {
     }
 
     checkBadges(); applyTheme(); updatePointeButton();
-    renderSpotlight(); renderSidebar(); renderFeed();
+    renderSpotlight(); renderSidebar(); renderFeed(); renderHeatmap(); renderBackupNudge();
     closeModal('modal-account-setup');
     startSyncPing();
     toast(`Welcome to Révérence, ${name} 🩰`);
