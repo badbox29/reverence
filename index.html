@@ -137,6 +137,11 @@
     <div class="feed-header">
       <h2 class="feed-title">Your Journal</h2>
       <div class="feed-controls">
+        <div class="feed-search">
+          <span class="feed-search-icon">⌕</span>
+          <input type="search" class="feed-search-input" id="filter-search"
+                 placeholder="Search entries…" autocomplete="off" aria-label="Search journal entries"/>
+        </div>
         <select class="select-filter" id="filter-style">
           <option value="all">All styles</option>
           <option>Ballet</option><option>Contemporary</option><option>Lyrical</option>
@@ -185,6 +190,7 @@
         <button class="btn btn-tiny btn-outline" onclick="openGoalModal()">+ Add</button>
       </div>
       <div id="sidebar-goals"><div class="widget-empty">No active goals yet.</div></div>
+      <div id="sidebar-goals-achieved"></div>
     </section>
 
     <section class="widget">
@@ -340,6 +346,36 @@
       <div class="form-actions">
         <button class="btn btn-ghost" data-close="modal-goal">Cancel</button>
         <button class="btn btn-primary" id="btn-submit-goal">Set Goal ⭐</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Goal Progress                                           -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-goal-progress" role="dialog" aria-modal="true" aria-label="Update Progress">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2 class="modal-title">Update Progress</h2>
+      <button class="modal-close" data-close="modal-goal-progress">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="gp-goal-title serif italic" id="gp-title"></div>
+      <div class="gp-readout"><span id="gp-value">0</span><span class="gp-pct">%</span></div>
+      <input type="range" class="gp-slider" id="gp-slider" min="0" max="100" step="5" value="0"
+             aria-label="Goal progress percentage"/>
+      <div class="gp-chips" id="gp-chips">
+        <span class="chip" data-pct="0">Not started</span>
+        <span class="chip" data-pct="25">25%</span>
+        <span class="chip" data-pct="50">Halfway</span>
+        <span class="chip" data-pct="75">75%</span>
+        <span class="chip" data-pct="100">Achieved</span>
+      </div>
+      <div class="gp-complete-note" id="gp-complete-note">✦ Saving at 100% will mark this goal achieved.</div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" data-close="modal-goal-progress">Cancel</button>
+        <button class="btn btn-primary" id="btn-submit-goal-progress">Save Progress</button>
       </div>
     </div>
   </div>
