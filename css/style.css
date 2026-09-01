@@ -318,7 +318,14 @@ body.light .feed-search-input::-webkit-search-cancel-button { filter: none; }
   padding: .45rem .6rem; border-left: 2px solid var(--gold);
   background: var(--ink3); border-radius: 0 var(--r-sm) var(--r-sm) 0;
   animation: fadeUp .25s ease both;
+  cursor: pointer; transition: var(--tr); outline: none;
 }
+.goal-done:hover,
+.goal-done:focus-visible {
+  background: var(--ink4); border-left-color: var(--gold2);
+  transform: translateX(2px);
+}
+.goal-done:focus-visible { box-shadow: 0 0 0 2px var(--rose); }
 .goal-done-title {
   font-family: var(--font-serif); font-style: italic;
   font-size: .92rem; color: var(--cream); margin-bottom: .1rem;
