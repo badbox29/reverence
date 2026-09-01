@@ -271,6 +271,96 @@ body.light .feed-title { color: var(--cream); }
 .select-filter:focus { border-color: var(--rose); }
 body.light .select-filter { background: var(--ink3); color: var(--cream); border-color: rgba(0,0,0,.15); }
 
+/* ── Feed Search ────────────────────────────────────────────────── */
+.feed-controls { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+.feed-search { position: relative; display: flex; align-items: center; }
+.feed-search-icon {
+  position: absolute; left: .55rem; font-size: .95rem;
+  color: var(--muted); pointer-events: none; line-height: 1;
+}
+.feed-search-input {
+  font-family: var(--font-ui); font-size: .78rem;
+  padding: .35rem .6rem .35rem 1.65rem;
+  border: 1px solid var(--border2); border-radius: var(--r-sm);
+  background: var(--ink3); color: var(--cream);
+  outline: none; transition: var(--tr); width: 160px;
+}
+.feed-search-input::placeholder { color: var(--muted); font-style: italic; }
+.feed-search-input:focus { border-color: var(--rose); width: 210px; }
+.feed-search-input::-webkit-search-cancel-button { filter: invert(.55); cursor: pointer; }
+body.light .feed-search-input { border-color: rgba(0,0,0,.15); }
+body.light .feed-search-input::-webkit-search-cancel-button { filter: none; }
+
+@media (max-width: 767px) {
+  .feed-header { flex-direction: column; align-items: stretch; }
+  .feed-search { flex: 1 1 100%; }
+  .feed-search-input,
+  .feed-search-input:focus { width: 100%; }
+}
+
+/* ── Achieved Goals ─────────────────────────────────────────────── */
+.goals-achieved { margin-top: .75rem; border-top: 1px solid var(--border); padding-top: .6rem; }
+.goals-achieved-summary {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; list-style: none; user-select: none;
+  font-family: var(--font-ui); font-size: .72rem; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--gold); transition: var(--tr);
+}
+.goals-achieved-summary::-webkit-details-marker { display: none; }
+.goals-achieved-summary:hover { color: var(--gold2); }
+.goals-achieved-count {
+  font-size: .68rem; color: var(--muted); background: var(--ink3);
+  border-radius: 999px; padding: .1rem .45rem; letter-spacing: normal;
+}
+.goals-achieved-list { margin-top: .55rem; display: flex; flex-direction: column; gap: .5rem; }
+.goal-done {
+  padding: .45rem .6rem; border-left: 2px solid var(--gold);
+  background: var(--ink3); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  animation: fadeUp .25s ease both;
+}
+.goal-done-title {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: .92rem; color: var(--cream); margin-bottom: .1rem;
+}
+
+/* ── Goal Progress Modal ────────────────────────────────────────── */
+.gp-goal-title {
+  font-size: 1.1rem; color: var(--cream);
+  text-align: center; margin-bottom: .25rem;
+}
+.gp-readout {
+  text-align: center; font-family: var(--font-serif);
+  color: var(--rose2); line-height: 1; margin: .35rem 0 .9rem;
+}
+#gp-value { font-size: 3rem; }
+.gp-pct { font-size: 1.3rem; opacity: .65; margin-left: .1rem; }
+
+.gp-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 5px; border-radius: 999px;
+  background: var(--ink4); outline: none; cursor: pointer; margin-bottom: 1rem;
+}
+.gp-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--rose); border: 2px solid var(--ink2);
+  box-shadow: var(--shadow-sm); cursor: pointer; transition: var(--tr);
+}
+.gp-slider::-webkit-slider-thumb:hover { background: var(--rose2); transform: scale(1.12); }
+.gp-slider::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--rose); border: 2px solid var(--ink2);
+  box-shadow: var(--shadow-sm); cursor: pointer;
+}
+
+.gp-chips { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; margin-bottom: .9rem; }
+.gp-complete-note {
+  display: none; text-align: center; font-family: var(--font-serif);
+  font-style: italic; font-size: .85rem; color: var(--gold);
+  margin-bottom: .9rem; animation: fadeUp .2s ease both;
+}
+
 /* ── Entry Cards ────────────────────────────────────────────────── */
 .entry-feed { display: flex; flex-direction: column; gap: .85rem; }
 
