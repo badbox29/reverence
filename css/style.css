@@ -412,6 +412,135 @@ body.light .feed-search-input::-webkit-search-cancel-button { filter: none; }
 .confirm-body p:last-child { margin-bottom: 0; }
 #modal-confirm .form-actions { margin-top: 1.35rem; }
 
+/* ── Backup Nudge ───────────────────────────────────────────────── */
+.backup-nudge {
+  background: var(--ink2); border: 1px solid var(--border2);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--r); padding: 1rem 1.15rem; margin-bottom: 1.1rem;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1.25rem; flex-wrap: wrap;
+  animation: fadeUp .3s ease both; box-shadow: var(--shadow-sm);
+}
+.nudge-body { flex: 1 1 260px; }
+.nudge-title {
+  font-family: var(--font-serif); font-size: 1.12rem;
+  color: var(--cream); margin-bottom: .3rem;
+}
+.nudge-count { color: var(--gold2); }
+.nudge-text {
+  font-family: var(--font-ui); font-size: .8rem;
+  line-height: 1.55; color: var(--muted);
+}
+.nudge-actions { display: flex; gap: .5rem; flex-shrink: 0; flex-wrap: wrap; }
+
+/* ── Consistency Heatmap ────────────────────────────────────────── */
+.heatmap-section {
+  --hm-size: 11px;
+  --hm-gap: 3px;
+  background: var(--ink2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 1rem 1.15rem; margin-bottom: 1.1rem;
+  box-shadow: var(--shadow-sm);
+}
+.heatmap-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: .85rem; gap: 1rem;
+}
+.heatmap-label {
+  font-family: var(--font-ui); font-size: .68rem; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--gold);
+}
+.heatmap-nav { display: flex; align-items: center; gap: .4rem; }
+.heatmap-year {
+  font-family: var(--font-serif); font-size: 1rem;
+  color: var(--cream); min-width: 3ch; text-align: center;
+}
+.heatmap-nav-btn {
+  background: none; border: 1px solid var(--border2); color: var(--muted2);
+  border-radius: var(--r-sm); width: 22px; height: 22px; line-height: 1;
+  cursor: pointer; transition: var(--tr); font-size: .9rem;
+}
+.heatmap-nav-btn:hover:not(:disabled) { color: var(--cream); border-color: var(--rose); }
+.heatmap-nav-btn:disabled { opacity: .28; cursor: default; }
+
+.heatmap-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: .25rem; }
+.heatmap-scroll::-webkit-scrollbar { height: 5px; }
+.heatmap-scroll::-webkit-scrollbar-thumb { background: var(--ink4); border-radius: 999px; }
+.heatmap-grid-wrap { display: inline-block; min-width: 100%; }
+
+.hm-months {
+  display: grid; gap: var(--hm-gap);
+  margin-bottom: .3rem; height: 12px;
+}
+.hm-month {
+  font-family: var(--font-ui); font-size: .6rem;
+  color: var(--muted); white-space: nowrap; grid-row: 1;
+}
+.hm-cols { display: flex; gap: var(--hm-gap); }
+.hm-col  { display: flex; flex-direction: column; gap: var(--hm-gap); }
+
+.hm-cell {
+  width: var(--hm-size); height: var(--hm-size);
+  border-radius: 2px; display: block; flex-shrink: 0;
+}
+.hm-blank  { background: transparent; }
+.hm-future { background: var(--ink3); opacity: .35; }
+.hm-l0 { background: var(--ink3); }
+.hm-l1 { background: rgba(201,130,122,.32); }
+.hm-l2 { background: rgba(201,130,122,.55); }
+.hm-l3 { background: rgba(201,130,122,.78); }
+.hm-l4 { background: var(--rose); }
+.hm-cell[title]:hover { outline: 1px solid var(--cream); outline-offset: 1px; }
+
+.heatmap-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; margin-top: .7rem; flex-wrap: wrap;
+}
+.heatmap-legend { display: flex; align-items: center; gap: 3px; }
+.heatmap-legend .hm-cell { width: 9px; height: 9px; }
+.heatmap-legend .f11 { margin: 0 .3rem; }
+
+@media (max-width: 767px) {
+  .heatmap-section { --hm-size: 10px; --hm-gap: 2px; padding: .85rem .9rem; }
+  .heatmap-foot { justify-content: flex-start; }
+}
+
+/* ── Skill History ──────────────────────────────────────────────── */
+.skill-spark { color: var(--rose2); opacity: .8; flex-shrink: 0; }
+.skill-history-line {
+  display: block; margin-top: .4rem;
+  font-family: var(--font-ui); font-size: .68rem;
+  letter-spacing: .04em; color: var(--muted);
+}
+
+/* ── Injury Context ─────────────────────────────────────────────── */
+.injury-context {
+  margin-top: .6rem; padding-top: .55rem;
+  border-top: 1px dashed var(--border2);
+}
+.injury-context-season {
+  font-family: var(--font-ui); font-size: .68rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--gold); margin-bottom: .45rem;
+}
+.injury-context-row {
+  display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap;
+}
+.injury-window { display: flex; flex-direction: column; }
+.injury-window-num {
+  font-family: var(--font-serif); font-size: 1.05rem;
+  color: var(--cream); line-height: 1.1;
+}
+.injury-window-label {
+  font-family: var(--font-ui); font-size: .62rem;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+.injury-delta {
+  font-family: var(--font-ui); font-size: .68rem;
+  padding: .18rem .45rem; border-radius: var(--r-sm);
+  border: 1px solid var(--border2); color: var(--muted2);
+}
+.injury-delta.down { color: var(--green); border-color: rgba(109,170,143,.4); }
+.injury-delta.up   { color: var(--gold2); border-color: rgba(184,152,90,.4); }
+
 /* ── Entry Cards ────────────────────────────────────────────────── */
 .entry-feed { display: flex; flex-direction: column; gap: .85rem; }
 
