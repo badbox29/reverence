@@ -368,6 +368,34 @@ body.light .feed-search-input::-webkit-search-cancel-button { filter: none; }
   margin-bottom: .9rem; animation: fadeUp .2s ease both;
 }
 
+/* ── Export / Import ────────────────────────────────────────────── */
+.data-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.data-actions .btn { flex: 1 1 auto; justify-content: center; }
+
+.import-warning {
+  font-family: var(--font-ui); font-size: .82rem; line-height: 1.5;
+  color: var(--red); background: rgba(192,112,112,.09);
+  border: 1px solid rgba(192,112,112,.28); border-left: 3px solid var(--red);
+  border-radius: var(--r-sm); padding: .65rem .8rem; margin-bottom: 1rem;
+}
+
+.import-compare {
+  display: flex; align-items: center; justify-content: center;
+  gap: 1.25rem; padding: 1rem 0;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.import-compare-col { text-align: center; }
+.import-compare-num {
+  font-family: var(--font-serif); font-size: 2.1rem;
+  line-height: 1; color: var(--muted2);
+}
+.import-compare-num--new { color: var(--rose2); }
+.import-compare-label {
+  font-family: var(--font-ui); font-size: .68rem; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted); margin-top: .3rem;
+}
+.import-compare-arrow { font-size: 1.2rem; color: var(--muted); }
+
 /* ── Entry Cards ────────────────────────────────────────────────── */
 .entry-feed { display: flex; flex-direction: column; gap: .85rem; }
 
