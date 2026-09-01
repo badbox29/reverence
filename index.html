@@ -804,6 +804,22 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Generic Confirm  (stacks above other modals)            -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay modal-overlay-top" id="modal-confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="modal modal-xs">
+    <div class="modal-body">
+      <h2 class="confirm-title" id="confirm-title">Are you sure?</h2>
+      <div class="confirm-body" id="confirm-body"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" id="btn-confirm-no">Cancel</button>
+        <button class="btn btn-danger" id="btn-confirm-yes">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
 <!-- MODAL: Import Confirm                                          -->
 <!-- ══════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-import-confirm" role="dialog" aria-modal="true" aria-label="Confirm Import">
