@@ -824,7 +824,10 @@ function renderSidebar() {
         </summary>
         <div class="goals-achieved-list">
           ${doneGoals.map(g=>`
-            <div class="goal-done">
+            <div class="goal-done" role="button" tabindex="0"
+                 title="Reopen or adjust this goal"
+                 onclick="updateGoalProgress('${g.id}')"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();updateGoalProgress('${g.id}');}">
               <div class="goal-done-title">${esc(g.title)}</div>
               <div class="f12 muted">${esc(g.style)}${g.completedDate&&g.completedDate!=='2000-01-01'?' · '+fmtDateShort(g.completedDate):''}</div>
             </div>`).join('')}
@@ -1349,6 +1352,8 @@ function updateGoalProgress(id) {
   const g=D.goals.find(x=>x.id===id); if(!g) return;
   progressGoalId=id;
   document.getElementById('gp-title').textContent=g.title;
+  // Note copy differs for an already-achieved goal, where the useful action is reopening it
+  document.getElementById('gp-complete-note').dataset.wasComplete = g.completed ? '1' : '';
   setGoalProgressValue(g.progress||0);
   openModal('modal-goal-progress');
 }
@@ -1357,7 +1362,17 @@ function setGoalProgressValue(pct){
   pct=Math.min(100,Math.max(0,Math.round(pct)));
   document.getElementById('gp-slider').value=pct;
   document.getElementById('gp-value').textContent=pct;
-  document.getElementById('gp-complete-note').style.display = pct===100 ? '' : 'none';
+  const note=document.getElementById('gp-complete-note');
+  const wasComplete=!!note.dataset.wasComplete;
+  if(wasComplete && pct<100){
+    note.textContent='✦ Saving below 100% will reopen this goal.';
+    note.style.display='';
+  } else if(!wasComplete && pct===100){
+    note.textContent='✦ Saving at 100% will mark this goal achieved.';
+    note.style.display='';
+  } else {
+    note.style.display='none';
+  }
   document.querySelectorAll('#gp-chips .chip').forEach(c=>
     c.classList.toggle('on', parseInt(c.dataset.pct)===pct));
 }
@@ -1391,7 +1406,9 @@ document.getElementById('btn-submit-goal-progress').addEventListener('click', ()
     const b=BADGE_DEFS.find(x=>x.id===newBadges[0]);
     if(b){ setTimeout(()=>toast(`${b.icon} Badge unlocked: ${b.label}!`), 400); return; }
   }
-  toast(g.completed && !wasComplete ? 'Goal achieved \u2b50' : 'Progress saved \u2713');
+  if(g.completed && !wasComplete)      toast('Goal achieved \u2b50');
+  else if(!g.completed && wasComplete)  toast('Goal reopened \u2014 back in progress.');
+  else                                  toast('Progress saved \u2713');
 });
 
 // ── Events ────────────────────────────────────────────────────────
