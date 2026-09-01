@@ -595,12 +595,15 @@ let D              = null;
 let currentPage    = 1;
 let filterStyle    = 'all';
 let filterSeason   = 'all';
+let filterSearch   = '';
 let schedView      = 'active';
 let expandedSeason = null;
 let skillsStyle    = null;
 let addClassSeason = null;
 let viewEntryId    = null;
 let viewEventId    = null;
+let progressGoalId = null;
+let goalsAchievedOpen = false;
 
 // ── Data init ─────────────────────────────────────────────────────
 function initData() {
@@ -807,6 +810,29 @@ function renderSidebar() {
         </div>
       </div>`).join('')
     : '<div class="widget-empty">No active goals yet.</div>';
+
+  // Achieved goals — collapsed by default so finished work stays visible without crowding
+  const doneGoals = D.goals.filter(g=>g.completed)
+    .sort((a,b)=>String(b.completedDate||'').localeCompare(String(a.completedDate||'')));
+  const achievedEl = document.getElementById('sidebar-goals-achieved');
+  if(achievedEl){
+    achievedEl.innerHTML = doneGoals.length ? `
+      <details class="goals-achieved" id="goals-achieved-details"${goalsAchievedOpen?' open':''}>
+        <summary class="goals-achieved-summary">
+          <span>✦ Achieved</span>
+          <span class="goals-achieved-count">${doneGoals.length}</span>
+        </summary>
+        <div class="goals-achieved-list">
+          ${doneGoals.map(g=>`
+            <div class="goal-done">
+              <div class="goal-done-title">${esc(g.title)}</div>
+              <div class="f12 muted">${esc(g.style)}${g.completedDate&&g.completedDate!=='2000-01-01'?' · '+fmtDateShort(g.completedDate):''}</div>
+            </div>`).join('')}
+        </div>
+      </details>` : '';
+    const det=document.getElementById('goals-achieved-details');
+    if(det) det.addEventListener('toggle', ()=>{ goalsAchievedOpen=det.open; });
+  }
 
   // Upcoming classes — today and next class day from active season
   const nowDate   = new Date();
@@ -1057,6 +1083,15 @@ function renderFeed() {
   let entries=[...D.entries].sort((a,b)=>b.date.localeCompare(a.date));
   if(filterStyle!=='all')  entries=entries.filter(e=>e.style===filterStyle);
   if(filterSeason!=='all') entries=entries.filter(e=>e.seasonId===filterSeason);
+  if(filterSearch){
+    const q=filterSearch.toLowerCase();
+    entries=entries.filter(e=>{
+      const season=D.seasons.find(s=>s.id===e.seasonId);
+      const cls=season?.classes?.find(c=>c.id===e.classId);
+      return [e.title,e.notes,e.style,e.mood,season?.name,cls?.name]
+        .some(f=>String(f||'').toLowerCase().includes(q));
+    });
+  }
 
   const pages=Math.max(1,Math.ceil(entries.length/PER_PAGE));
   if(currentPage>pages) currentPage=1;
@@ -1065,11 +1100,17 @@ function renderFeed() {
   const feed=document.getElementById('entry-feed');
 
   if(!slice.length){
-    feed.innerHTML=`
-      <div class="feed-empty" id="feed-empty">
-        <div class="feed-empty-icon">🩰</div>
-        <p>No entries yet. Log your first session to begin.</p>
-      </div>`;
+    const filtering = filterSearch || filterStyle!=='all' || filterSeason!=='all';
+    feed.innerHTML = filtering
+      ? `<div class="feed-empty" id="feed-empty">
+           <div class="feed-empty-icon">⌕</div>
+           <p>Nothing matches that${filterSearch?` — no entries mention “${esc(filterSearch)}”`:''}.</p>
+           <button class="btn btn-ghost btn-sm mt-4" onclick="clearFeedFilters()">Clear filters</button>
+         </div>`
+      : `<div class="feed-empty" id="feed-empty">
+           <div class="feed-empty-icon">🩰</div>
+           <p>No entries yet. Log your first session to begin.</p>
+         </div>`;
     document.getElementById('pagination').innerHTML=''; return;
   }
 
@@ -1117,6 +1158,21 @@ function renderFeed() {
 }
 
 function goPage(n){ currentPage=n; renderFeed(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+function clearFeedFilters(){
+  filterSearch=''; filterStyle='all'; filterSeason='all'; currentPage=1;
+  const s=document.getElementById('filter-search'); if(s) s.value='';
+  document.getElementById('filter-style').value='all';
+  document.getElementById('filter-season').value='all';
+  renderFeed();
+}
+
+let searchDebounce=null;
+document.getElementById('filter-search').addEventListener('input', function(){
+  const v=this.value.trim();
+  clearTimeout(searchDebounce);
+  searchDebounce=setTimeout(()=>{ filterSearch=v; currentPage=1; renderFeed(); }, 180);
+});
 
 document.getElementById('filter-style').addEventListener('change', function(){ filterStyle=this.value; currentPage=1; renderFeed(); });
 document.getElementById('filter-season').addEventListener('change', function(){ filterSeason=this.value; currentPage=1; renderFeed(); });
@@ -1167,6 +1223,8 @@ function editEntry(id) {
 // ── Log session ───────────────────────────────────────────────────
 function openLogModal(editEntry) {
   const btn = document.getElementById('btn-submit-log');
+  // Guard against future-dated entries — they inflate streaks and pin to the top of the feed forever
+  document.getElementById('ml-date').max = today();
   if(editEntry) {
     // Pre-fill form with existing entry data
     document.getElementById('ml-date').value  = editEntry.date||today();
@@ -1229,9 +1287,11 @@ document.getElementById('btn-submit-log').addEventListener('click', function(){
   this.textContent = 'Saving…';
 
   const editId = this.dataset.editId||'';
+  // `max` on the input is only a hint — clamp here so a typed date can't land in the future
+  const rawDate = document.getElementById('ml-date').value||today();
   const entryData = {
     title:    val('ml-title'),
-    date:     document.getElementById('ml-date').value||today(),
+    date:     rawDate > today() ? today() : rawDate,
     style:    document.getElementById('ml-style').value,
     duration: parseInt(document.getElementById('ml-dur').value)||60,
     seasonId: document.getElementById('ml-season').value,
@@ -1287,12 +1347,52 @@ document.getElementById('btn-submit-goal').addEventListener('click',()=>{
 
 function updateGoalProgress(id) {
   const g=D.goals.find(x=>x.id===id); if(!g) return;
-  const pct=parseInt(prompt(`Progress for "${g.title}" (0–100%):`, g.progress||0));
-  if(isNaN(pct)) return;
-  g.progress=Math.min(100,Math.max(0,pct));
-  if(g.progress===100 && confirm('Mark this goal as completed?')) { g.completed=true; g.completedDate=today(); }
-  checkBadges(); save(); renderSidebar();
+  progressGoalId=id;
+  document.getElementById('gp-title').textContent=g.title;
+  setGoalProgressValue(g.progress||0);
+  openModal('modal-goal-progress');
 }
+
+function setGoalProgressValue(pct){
+  pct=Math.min(100,Math.max(0,Math.round(pct)));
+  document.getElementById('gp-slider').value=pct;
+  document.getElementById('gp-value').textContent=pct;
+  document.getElementById('gp-complete-note').style.display = pct===100 ? '' : 'none';
+  document.querySelectorAll('#gp-chips .chip').forEach(c=>
+    c.classList.toggle('on', parseInt(c.dataset.pct)===pct));
+}
+
+document.getElementById('gp-slider').addEventListener('input', function(){
+  setGoalProgressValue(this.value);
+});
+
+document.getElementById('gp-chips').addEventListener('click', e=>{
+  const chip=e.target.closest('.chip'); if(!chip) return;
+  setGoalProgressValue(parseInt(chip.dataset.pct));
+});
+
+document.getElementById('btn-submit-goal-progress').addEventListener('click', ()=>{
+  const g=D.goals.find(x=>x.id===progressGoalId); if(!g) return;
+  const pct=Math.min(100,Math.max(0,parseInt(document.getElementById('gp-slider').value)||0));
+  const wasComplete=g.completed;
+  g.progress=pct;
+  if(pct===100){ g.completed=true; if(!g.completedDate) g.completedDate=today(); }
+  else { g.completed=false; g.completedDate=null; }
+
+  const beforeBadges=[...D.badges];
+  checkBadges();
+  const newBadges=D.badges.filter(b=>!beforeBadges.includes(b));
+  if(g.completed && !wasComplete) goalsAchievedOpen=true;
+  save(); renderSidebar();
+  closeModal('modal-goal-progress');
+  progressGoalId=null;
+
+  if(newBadges.length){
+    const b=BADGE_DEFS.find(x=>x.id===newBadges[0]);
+    if(b){ setTimeout(()=>toast(`${b.icon} Badge unlocked: ${b.label}!`), 400); return; }
+  }
+  toast(g.completed && !wasComplete ? 'Goal achieved \u2b50' : 'Progress saved \u2713');
+});
 
 // ── Events ────────────────────────────────────────────────────────
 // Type-specific field definitions
