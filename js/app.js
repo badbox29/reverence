@@ -735,7 +735,10 @@ function openModal(id) {
 }
 function closeModal(id) {
   const el=document.getElementById(id);
-  if(el){ el.classList.remove('open'); document.body.style.overflow=''; }
+  if(!el) return;
+  el.classList.remove('open');
+  // Only release the scroll lock if nothing else is still open — modals can stack
+  if(!document.querySelector('.modal-overlay.open')) document.body.style.overflow='';
 }
 
 document.addEventListener('click', e => {
@@ -745,8 +748,45 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('keydown', e => {
-  if(e.key==='Escape')
-    document.querySelectorAll('.modal-overlay.open').forEach(m=>closeModal(m.id));
+  if(e.key!=='Escape') return;
+  // Dismiss only the topmost modal so Escape doesn't blow away a stack
+  const open=[...document.querySelectorAll('.modal-overlay.open')];
+  if(!open.length) return;
+  const top=open.reduce((a,b)=>
+    (parseInt(getComputedStyle(b).zIndex)||0) >= (parseInt(getComputedStyle(a).zIndex)||0) ? b : a);
+  if(top.id==='modal-confirm'){ resolveConfirm(false); return; }
+  closeModal(top.id);
+});
+
+
+// ── Confirm dialog ────────────────────────────────────────────────
+// Promise-based replacement for window.confirm(). Stacks above other modals.
+// Usage: if(!await confirmModal({...})) return;
+let confirmResolver = null;
+
+function confirmModal({ title='Are you sure?', body='', confirmLabel='Confirm', danger=true }={}) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-body').innerHTML =
+    String(body).split(/\n{2,}/).map(p=>`<p>${esc(p)}</p>`).join('');
+  const btn = document.getElementById('btn-confirm-yes');
+  btn.textContent = confirmLabel;
+  btn.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+  openModal('modal-confirm');
+  setTimeout(()=>btn.focus(), 60);
+  return new Promise(res => { confirmResolver = res; });
+}
+
+function resolveConfirm(value) {
+  closeModal('modal-confirm');
+  const r = confirmResolver;
+  confirmResolver = null;
+  if(r) r(value);
+}
+
+document.getElementById('btn-confirm-yes').addEventListener('click', ()=>resolveConfirm(true));
+document.getElementById('btn-confirm-no').addEventListener('click', ()=>resolveConfirm(false));
+document.getElementById('modal-confirm').addEventListener('click', e=>{
+  if(e.target.id==='modal-confirm') resolveConfirm(false);
 });
 
 // ── Toast ─────────────────────────────────────────────────────────
@@ -1211,8 +1251,15 @@ function openEntry(id) {
   openModal('modal-view-entry');
 }
 
-document.getElementById('btn-delete-entry').addEventListener('click',()=>{
-  if(!viewEntryId||!confirm('Delete this entry?')) return;
+document.getElementById('btn-delete-entry').addEventListener('click', async ()=>{
+  if(!viewEntryId) return;
+  const e=D.entries.find(x=>x.id===viewEntryId);
+  const ok=await confirmModal({
+    title:'Delete this entry?',
+    body:`“${e?.title||e?.style||'This session'}” from ${e?fmtDate(e.date):'your journal'} will be permanently removed.\n\nThis can't be undone.`,
+    confirmLabel:'Delete Entry',
+  });
+  if(!ok) return;
   D.entries=D.entries.filter(e=>e.id!==viewEntryId);
   save(); renderFeed(); renderSidebar(); closeModal('modal-view-entry'); toast('Entry deleted.');
 });
@@ -1578,8 +1625,15 @@ function openEventDetail(id) {
   openModal('modal-view-event');
 }
 
-document.getElementById('btn-delete-event').addEventListener('click',()=>{
-  if(!viewEventId||!confirm('Delete this event?')) return;
+document.getElementById('btn-delete-event').addEventListener('click', async ()=>{
+  if(!viewEventId) return;
+  const ev=D.events.find(x=>x.id===viewEventId);
+  const ok=await confirmModal({
+    title:'Delete this event?',
+    body:`“${ev?.name||'This event'}” will be permanently removed. Any badges that depended on it will be recalculated.\n\nThis can't be undone.`,
+    confirmLabel:'Delete Event',
+  });
+  if(!ok) return;
   D.events=D.events.filter(e=>e.id!==viewEventId);
   checkBadges(); save(); renderSidebar(); renderEventsList();
   closeModal('modal-view-event'); toast('Event deleted.');
@@ -1664,7 +1718,18 @@ function renderScheduleModal() {
 function toggleExpand(id){ expandedSeason=expandedSeason===id?null:id; renderScheduleModal(); }
 function toggleSeasonActive(id){ D.seasons=D.seasons.map(s=>s.id===id?{...s,active:!s.active}:s); save();renderSidebar();renderScheduleModal();renderFeed(); }
 function toggleArchive(id){ D.seasons=D.seasons.map(s=>s.id===id?{...s,archived:!s.archived,active:false}:s); save();renderSidebar();renderScheduleModal();renderFeed(); }
-function deleteSeason(id){ if(!confirm('Delete this season? Journal entries will remain but lose the season link.')) return; D.seasons=D.seasons.filter(s=>s.id!==id); expandedSeason=null; save();renderSidebar();renderScheduleModal();renderFeed(); }
+async function deleteSeason(id){
+  const s=D.seasons.find(x=>x.id===id);
+  const n=D.entries.filter(e=>e.seasonId===id).length;
+  const ok=await confirmModal({
+    title:'Delete this season?',
+    body:`“${s?.name||'This season'}” and its classes will be removed.\n\n${n?`${n} journal entr${n===1?'y':'ies'} will remain, but lose the season link.`:'No journal entries are linked to it.'}`,
+    confirmLabel:'Delete Season',
+  });
+  if(!ok) return;
+  D.seasons=D.seasons.filter(s=>s.id!==id); expandedSeason=null;
+  save();renderSidebar();renderScheduleModal();renderFeed();
+}
 function deleteClass(sid,cid){ D.seasons=D.seasons.map(s=>s.id===sid?{...s,classes:(s.classes||[]).filter(c=>c.id!==cid)}:s); save();renderScheduleModal(); }
 
 document.getElementById('sched-tab-active').addEventListener('click',   ()=>{ schedView='active';   renderScheduleModal(); });
@@ -1942,8 +2007,14 @@ function cycleInjuryStatus(id) {
   toast(`Status updated: ${inj.status}`);
 }
 
-function deleteInjury(id) {
-  if (!confirm('Remove this injury entry?')) return;
+async function deleteInjury(id) {
+  const inj = D.injuryLog.find(x => x.id === id);
+  const ok = await confirmModal({
+    title: 'Remove this injury entry?',
+    body: `“${inj?.area||inj?.type||'This entry'}” will be permanently removed from your injury log.\n\nThis can't be undone.`,
+    confirmLabel: 'Remove Entry',
+  });
+  if(!ok) return;
   D.injuryLog = D.injuryLog.filter(x => x.id !== id);
   save(); renderInjuryLog();
 }
@@ -2105,8 +2176,14 @@ document.getElementById('btn-confirm-import').addEventListener('click', function
   }
 });
 
-document.getElementById('btn-recalc-badges').addEventListener('click', () => {
-  if(!confirm('This will wipe all current badges and recalculate them from your actual data.\n\nAny badges earned through real practice will be re-awarded immediately. Badges that only existed due to deleted or corrected data will be removed.\n\nContinue?')) return;
+document.getElementById('btn-recalc-badges').addEventListener('click', async () => {
+  const ok = await confirmModal({
+    title: 'Recalculate badges?',
+    body: "All current badges will be wiped and rebuilt from your journal as it stands today.\n\nAnything you genuinely earned is re-awarded immediately. Badges that only survived from deleted or corrected entries will disappear.",
+    confirmLabel: 'Recalculate',
+    danger: false,
+  });
+  if(!ok) return;
   D.badges = [];
   checkBadges();
   save();
