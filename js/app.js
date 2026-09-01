@@ -1903,6 +1903,7 @@ function openSettingsModal() {
     if(upgradeEl)      upgradeEl.style.display        = isGoogleAuthAvailable() ? '' : 'none';
   }
 
+  renderExportMeta();
   openModal('modal-settings');
 }
 
@@ -1965,6 +1966,144 @@ document.getElementById('btn-save-settings').addEventListener('click',()=>{
 });
 
 document.getElementById('btn-settings').addEventListener('click', openSettingsModal);
+
+// ── Export / Import ───────────────────────────────────────────────
+// Format version gates imports. Bump only on breaking schema changes;
+// an older app must refuse a newer file rather than half-import it.
+const EXPORT_FORMAT_VERSION = 1;
+
+// Credentials must never ride along in a backup — these files get emailed,
+// dropped in cloud folders, and passed around.
+const EXPORT_STRIP_FIELDS = ['userToken','workerUrl','authMethod','linkedGoogle','lastModified'];
+
+function buildExportPayload() {
+  const content = {};
+  Object.keys(D).forEach(k => { if(!EXPORT_STRIP_FIELDS.includes(k)) content[k] = D[k]; });
+  return {
+    formatVersion: EXPORT_FORMAT_VERSION,
+    appVersion:    KV.get('app_version') || '0.5',
+    exportedAt:    new Date().toISOString(),
+    entryCount:    (D.entries||[]).length,
+    data:          content,
+  };
+}
+
+function exportJSON() {
+  let url;
+  try {
+    const payload = buildExportPayload();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+    url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reverence-backup-${today()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast(`Backup saved \u2014 ${payload.entryCount} entr${payload.entryCount===1?'y':'ies'}.`);
+    KV.set('last_export', Date.now());
+    renderExportMeta();
+  } catch(err) {
+    console.error('Export failed:', err);
+    toast('Export failed. Your data is unchanged.');
+  } finally {
+    // Revoke on the next tick so the download has already been handed off
+    if(url) setTimeout(()=>URL.revokeObjectURL(url), 10000);
+  }
+}
+
+function renderExportMeta() {
+  const el = document.getElementById('export-meta');
+  if(!el) return;
+  const last = KV.get('last_export');
+  const n = (D.entries||[]).length;
+  el.textContent = last
+    ? `${n} entr${n===1?'y':'ies'} \u00b7 last backup ${fmtDate(new Date(last).toISOString().split('T')[0])}`
+    : `${n} entr${n===1?'y':'ies'} \u00b7 never backed up`;
+}
+
+// Holds the parsed, validated payload between file selection and confirmation
+let pendingImport = null;
+
+function validateImportPayload(payload) {
+  if(!payload || typeof payload !== 'object')     return "That file isn't a Révérence backup.";
+  if(typeof payload.formatVersion !== 'number')   return "That file isn't a Révérence backup.";
+  if(payload.formatVersion > EXPORT_FORMAT_VERSION)
+    return 'This backup was made by a newer version of Révérence. Update the app before importing.';
+  if(!payload.data || typeof payload.data !== 'object') return 'This backup is missing its data.';
+  if(!Array.isArray(payload.data.entries))        return 'This backup is missing its journal entries.';
+  return null;
+}
+
+document.getElementById('btn-export-json').addEventListener('click', exportJSON);
+
+document.getElementById('btn-import-json').addEventListener('click', () => {
+  const input = document.getElementById('import-file-input');
+  input.value = ''; // allow re-selecting the same file after a cancel
+  input.click();
+});
+
+document.getElementById('import-file-input').addEventListener('change', function() {
+  const file = this.files && this.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onerror = () => toast("Couldn't read that file.");
+  reader.onload = () => {
+    let payload;
+    try { payload = JSON.parse(reader.result); }
+    catch { toast("That file isn't valid JSON."); return; }
+
+    const problem = validateImportPayload(payload);
+    if(problem) { toast(problem, 4200); return; }
+
+    pendingImport = payload;
+    const incoming = payload.data.entries.length;
+    const current  = (D.entries||[]).length;
+    document.getElementById('import-compare').innerHTML = `
+      <div class="import-compare-col">
+        <div class="import-compare-num">${current}</div>
+        <div class="import-compare-label">Now</div>
+      </div>
+      <div class="import-compare-arrow">→</div>
+      <div class="import-compare-col">
+        <div class="import-compare-num import-compare-num--new">${incoming}</div>
+        <div class="import-compare-label">After import</div>
+      </div>`;
+    closeModal('modal-settings');
+    openModal('modal-import-confirm');
+  };
+  reader.readAsText(file);
+});
+
+document.getElementById('btn-confirm-import').addEventListener('click', function() {
+  if(!pendingImport) return;
+  this.disabled = true;
+  this.textContent = 'Importing\u2026';
+  try {
+    // Preserve this device's account config — a backup carries content only
+    const keep = {
+      userToken:    D.userToken,
+      workerUrl:    D.workerUrl,
+      authMethod:   D.authMethod,
+      linkedGoogle: D.linkedGoogle,
+    };
+    const merged = mergeData({ ...pendingImport.data, ...keep });
+    merged.badges = [];        // recalculate from imported data rather than trusting the file
+    merged.lastModified = Date.now();
+    applyData(merged);         // writes locally, re-runs checkBadges, re-renders everything
+    if(workerBase()) pushToWorker();
+    const n = (D.entries||[]).length;
+    closeModal('modal-import-confirm');
+    toast(`Imported \u2014 ${n} entr${n===1?'y':'ies'} restored.`, 3200);
+  } catch(err) {
+    console.error('Import failed:', err);
+    toast('Import failed. Your existing data is unchanged.', 4000);
+  } finally {
+    pendingImport = null;
+    this.disabled = false;
+    this.textContent = 'Replace My Data';
+  }
+});
 
 document.getElementById('btn-recalc-badges').addEventListener('click', () => {
   if(!confirm('This will wipe all current badges and recalculate them from your actual data.\n\nAny badges earned through real practice will be re-awarded immediately. Badges that only existed due to deleted or corrected data will be removed.\n\nContinue?')) return;
