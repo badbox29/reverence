@@ -68,7 +68,7 @@ const GOOGLE_CLIENT_ID = '816310286560-4tgoor67vdu5jh65nlul0lr78rkrc5bc.apps.goo
 // travels as a bare bearer credential.
 // HMAC_REQUIRED: set to false during rollout to accept unsigned requests
 // from older clients; set to true once all clients are updated.
-const HMAC_REQUIRED = true; // flip to true after app.js is deployed
+const HMAC_REQUIRED = true; // enforced — clients must send X-Timestamp + X-Signature
 
 // ── Google JWT verification ───────────────────────────────────────
 // Verifies a Google ID token by fetching Google's public JWKS, finding
@@ -517,6 +517,29 @@ export default {
           await env.REVERENCE_KV.put(`legacy:${legacyToken}`, token, {
             expirationTtl: 60 * 60 * 24 * 90, // 90 days
           });
+        }
+
+        // ── Stale-write guard ──────────────────────────────────────
+        // Blind last-write-wins let a client with an out-of-date copy
+        // overwrite newer server data — which is how an auth failure on the
+        // client turned into permanent, unrecoverable loss. A client that
+        // has genuinely diverged must pull and merge before it can write.
+        // Writes without a lastModified are allowed through (imports,
+        // migrations, legacy clients) rather than being hard-blocked.
+        const incomingTs = Number(parsed.lastModified) || 0;
+        if(incomingTs > 0) {
+          const existing = await env.REVERENCE_KV.get(token, { type: 'text' });
+          if(existing) {
+            let existingTs = 0;
+            try { existingTs = Number(JSON.parse(existing).lastModified) || 0; } catch {}
+            if(existingTs > incomingTs) {
+              return respond(JSON.stringify({
+                error:        'Stale write rejected',
+                storedAt:     existingTs,
+                submittedAt:  incomingTs,
+              }), 409, cors);
+            }
+          }
         }
 
         await env.REVERENCE_KV.put(token, body, { expirationTtl: KV_TTL });
