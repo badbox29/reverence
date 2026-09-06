@@ -1010,6 +1010,18 @@ body.light .event-card-title { color: var(--cream); }
 .sync-syncing { color: var(--gold2); border-color: rgba(184,152,90,.3); background: rgba(184,152,90,.08); animation: spin-pulse 1.2s ease-in-out infinite; }
 .sync-ok      { color: var(--green); border-color: rgba(109,170,143,.3); background: rgba(109,170,143,.1); }
 .sync-error   { color: var(--red);   border-color: rgba(192,112,112,.3); background: rgba(192,112,112,.1); }
+/* Auth failure is NOT a network blip — it must look categorically different
+   from 'sync error', which users learn to ignore. Pulses to draw the eye. */
+.sync-unauth  {
+  color: var(--gold2); border-color: rgba(184,152,90,.55);
+  background: rgba(184,152,90,.14); font-weight: 500;
+  animation: unauthPulse 2.4s ease-in-out infinite;
+}
+@keyframes unauthPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(184,152,90,0); }
+  50%     { box-shadow: 0 0 0 3px rgba(184,152,90,.16); }
+}
+@media (prefers-reduced-motion: reduce) { .sync-unauth { animation: none; } }
 
 /* ── Auth method badge ─────────────────────────────────────────── */
 .auth-badge {
