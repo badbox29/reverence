@@ -99,6 +99,9 @@ const KV = {
 };
 
 // ── Remote sync (Cloudflare Worker) ──────────────────────────────
+// Set when crypto.subtle signing fails; surfaced in the sync chip so the
+// user learns their changes aren't reaching the cloud.
+let signingBroken = false;
 let syncStatus  = 'idle';  // idle | syncing | ok | error | offline
 let syncDirty   = false;   // true when local changes haven't reached worker yet
 let syncPingTimer = null;
@@ -110,8 +113,21 @@ function workerBase() {
 
 function setSyncStatus(s) {
   syncStatus = s;
+  // 'unauth' is deliberately NOT worded like a network error — that
+  // ambiguity is what trained users to ignore a real data-loss warning.
+  if(authState === 'expired' || signingBroken) {
+    const el0 = document.getElementById('sync-indicator');
+    const msg = signingBroken
+      ? { title:'Secure signing unavailable on this device — changes are saved locally only',
+          text: '⚠ Not syncing · local only' }
+      : { title:'Not saving to the cloud — sign in again to resume syncing',
+          text: '⚠ Signed out · not syncing' };
+    if(el0) el0.outerHTML = `<span id="sync-indicator" class="sync-indicator sync-unauth" title="${esc(msg.title)}">${msg.text}</span>`;
+    return;
+  }
   const map = {
     idle:    { icon:'☁️',  text:'Not synced', cls:'sync-idle'    },
+    unauth:  { icon:'⚠',  text:'Signed out · not syncing', cls:'sync-unauth' },
     syncing: { icon:'⟳',   text:'Syncing…',   cls:'sync-syncing' },
     ok:      { icon:'✓',   text:'Synced',     cls:'sync-ok'      },
     error:   { icon:'✕',   text:'Sync error', cls:'sync-error'   },
@@ -175,30 +191,80 @@ async function authHeaders(method, token, body) {
     const idToken = KV.get('google_id_token');
     return idToken ? { 'Authorization': `Bearer ${idToken}` } : {};
   }
-  // Token account — sign with HMAC
+  // Token account — sign with HMAC.
+  // The worker now has HMAC_REQUIRED=true, so an unsigned request is a hard
+  // 401. Failing open here would put any device with unavailable crypto
+  // (insecure context, old WebView) into permanent silent sync failure —
+  // so surface it instead of pretending the request can succeed.
   try {
     return await signRequest(method, token, body);
-  } catch {
-    return {}; // fail open during rollout — worker HMAC_REQUIRED=false
+  } catch(err) {
+    console.error('[Auth] Request signing failed — crypto.subtle unavailable?', err);
+    signingBroken = true;
+    return null;   // caller must treat this as "cannot authenticate"
   }
 }
+
 
 async function pushToWorker(token) {
   const base = workerBase();
   token = token || D?.userToken;
   if(!base || !token) return false;
+
+  // An expired credential is not a network problem. Don't burn a request
+  // (or a retry loop) on a token we already know is dead — refresh first.
+  if(isGoogleAccount() && !tokenIsFresh(KV.get('google_id_token'))) {
+    const ok = await refreshSession('push');
+    if(!ok) { syncDirty = true; setSyncStatus('unauth'); return false; }
+  }
+
   setSyncStatus('syncing');
   try {
     const body    = JSON.stringify({ ...D });
     const auth    = await authHeaders('PUT', token, body);
+    if(auth === null) { syncDirty = true; setSyncStatus('unauth'); return false; }
     const res = await fetch(`${base}/kv/${encodeURIComponent(token)}`, {
       method:  'PUT',
       headers: { 'Content-Type': 'application/json', ...auth },
       body,
     });
     if(res.ok) { syncDirty=false; setSyncStatus('ok'); return true; }
+
+    // ── 409: our copy is older than what's stored. Pull, merge, retry once.
+    if(res.status === 409) {
+      const info = await res.json().catch(() => ({}));
+      console.warn('[Sync] Stale write rejected by worker', info);
+      const remote = await pullFromWorker(token);
+      if(remote && (remote.lastModified||0) > (D.lastModified||0)) {
+        const merged = mergeData(remote);
+        merged.workerUrl = D.workerUrl;
+        merged.userToken = D.userToken;
+        applyData(merged);
+        setSyncStatus('ok');
+        return true;
+      }
+      // Our copy really is newer — force it through with a fresh stamp
+      D.lastModified = Date.now();
+      KV.set('appdata', D);
+      return pushToWorker(token);
+    }
+
+    // ── 401/403: credential is dead. Terminal — retrying cannot help.
+    // This is the failure that used to masquerade as a network error and
+    // silently drop hours of writes.
+    if(res.status === 401 || res.status === 403) {
+      syncDirty = true;                  // data stays pending, never discarded
+      const ok = await refreshSession('401');
+      if(ok) return pushToWorker(token); // fresh token — retry immediately
+      setSyncStatus('unauth');
+      return false;
+    }
+
     setSyncStatus('error'); return false;
   } catch {
+    // Genuine network failure — retryable. localStorage holds the data and
+    // startSyncPing will flush it on reconnect.
+    syncDirty = true;
     setSyncStatus(navigator.onLine ? 'error' : 'offline');
     return false;
   }
@@ -212,6 +278,7 @@ async function pullFromWorker(token) {
   setSyncStatus('syncing');
   try {
     const auth = await authHeaders('GET', token, '');
+    if(auth === null) { setSyncStatus('unauth'); return null; }
     const res  = await fetch(`${base}/kv/${encodeURIComponent(token)}`, {
       headers: auth,
     });
@@ -315,6 +382,9 @@ function startSyncPing() {
   syncPingTimer = setInterval(async () => {
     const base = workerBase();
     if(!base) return;
+    // Never retry against a credential we know is dead — that was the
+    // 60-second loop that reported "sync error" forever and learned nothing.
+    if(authState === 'expired') return;
     if(syncDirty) {
       // Attempt to flush pending changes
       await pushToWorker();
@@ -449,13 +519,42 @@ async function handleGoogleCredential(idToken) {
   const isNewAccount = !remote;
 
   if(remote) {
-    // Existing Google account — merge and apply
-    const merged = mergeData(remote);
-    merged.workerUrl    = oldWorkerUrl || merged.workerUrl;
-    merged.authMethod   = 'google';
-    merged.linkedGoogle = profile;
-    merged.userToken    = kvKey; // must be set explicitly — stored profile never contains this field
-    applyData(merged);
+    // Existing Google account — merge and apply.
+    //
+    // SAFETY NET: this path also runs on re-authentication, where the local
+    // copy may be NEWER than the server's (writes made while the credential
+    // was dead land in localStorage only). Applying remote unconditionally
+    // here destroyed those writes — and then pushed the stale copy back up,
+    // wiping the server too. Scheduled refresh should keep this window at
+    // zero; if this guard ever fires, something upstream is broken.
+    const localTs  = D?.lastModified || 0;
+    const remoteTs = remote.lastModified || 0;
+    const localEntries  = (D?.entries || []).length;
+    const remoteEntries = (remote.entries || []).length;
+    const localWins = D && (syncDirty || localTs > remoteTs);
+
+    if(localWins) {
+      console.warn('[Auth] Keeping local data on re-auth —',
+        `local ${localEntries} entries @${localTs} vs remote ${remoteEntries} @${remoteTs}`,
+        syncDirty ? '(unsynced changes pending)' : '(local newer)');
+      // Adopt the Google identity but keep local content, then push it up.
+      D.authMethod   = 'google';
+      D.linkedGoogle = profile;
+      D.userToken    = kvKey;
+      D.workerUrl    = oldWorkerUrl || D.workerUrl;
+      KV.set('appdata', D);
+      syncDirty = true;
+      if(localEntries > remoteEntries) {
+        toast(`Kept your ${localEntries} local entries — syncing them now.`, 3600);
+      }
+    } else {
+      const merged = mergeData(remote);
+      merged.workerUrl    = oldWorkerUrl || merged.workerUrl;
+      merged.authMethod   = 'google';
+      merged.linkedGoogle = profile;
+      merged.userToken    = kvKey; // must be set explicitly — stored profile never contains this field
+      applyData(merged);
+    }
   } else {
     // New Google account — init fresh data with Google auth fields
     if(!D) D = initData();
@@ -475,6 +574,8 @@ async function handleGoogleCredential(idToken) {
 
   // Store the ID token for session verification at next boot
   KV.set('google_id_token', idToken);
+  setAuthState('ok');
+  scheduleSessionRefresh();   // arm the next refresh from this token's exp
   save();
   startSyncPing();
 
@@ -964,6 +1065,92 @@ function renderSidebar() {
 }
 
 
+
+
+// ── Session lifecycle (Google) ────────────────────────────────────
+// Token expiry is SCHEDULED, not a surprise: the exp claim is in the JWT
+// from the moment of sign-in. We refresh ahead of it rather than
+// discovering the failure hours later through accumulated 401s.
+let sessionTimer  = null;
+let authState     = 'ok';   // ok | refreshing | expired
+const REFRESH_LEAD_MS = 5 * 60 * 1000;   // start refreshing 5 min before exp
+
+function decodeJwtExp(idToken) {
+  try {
+    const parts = String(idToken||'').split('.');
+    if(parts.length !== 3) return 0;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    return (payload.exp || 0) * 1000;   // ms
+  } catch { return 0; }
+}
+
+function tokenIsFresh(idToken, leadMs = 0) {
+  const exp = decodeJwtExp(idToken);
+  return exp > 0 && (exp - Date.now()) > leadMs;
+}
+
+// Schedule a refresh just before the current token dies.
+function scheduleSessionRefresh() {
+  if(sessionTimer) { clearTimeout(sessionTimer); sessionTimer = null; }
+  if(!isGoogleAccount()) return;
+  const exp = decodeJwtExp(KV.get('google_id_token'));
+  if(!exp) return;
+  // Fire at exp - lead, but never less than 1s out (and never in the past)
+  const delay = Math.max(1000, exp - Date.now() - REFRESH_LEAD_MS);
+  sessionTimer = setTimeout(() => { refreshSession('scheduled'); }, delay);
+}
+
+// Attempt a silent GIS refresh. If Google still has a live session this is
+// invisible to the user and sync never breaks. If not, prompt immediately —
+// while the old token is STILL VALID, so in-flight writes land.
+async function refreshSession(reason) {
+  if(!isGoogleAccount() || !workerBase()) return false;
+  if(authState === 'refreshing') return false;
+  setAuthState('refreshing');
+
+  const got = await silentGoogleRefresh();
+  if(got) {
+    KV.set('google_id_token', got);
+    setAuthState('ok');
+    scheduleSessionRefresh();
+    if(syncDirty) pushToWorker();       // flush anything queued
+    return true;
+  }
+
+  // Silent refresh unavailable — ask the user now, before expiry.
+  setAuthState('expired');
+  showGoogleReauth(reason === 'scheduled'
+    ? 'Your sign-in is about to expire. Sign in again to keep your journal syncing.'
+    : 'Your session has expired. Sign in again to continue.');
+  return false;
+}
+
+// Silent refresh via GIS One Tap in auto-select mode. Resolves with a fresh
+// credential, or null if Google can't issue one without user interaction.
+function silentGoogleRefresh() {
+  if(!isGoogleAuthAvailable() || !window.google?.accounts?.id) return Promise.resolve(null);
+  return new Promise(resolve => {
+    let settled = false;
+    const done = v => { if(!settled){ settled = true; resolve(v); } };
+    // Hard ceiling — never hang the refresh path on GIS
+    setTimeout(() => done(null), 8000);
+    try {
+      google.accounts.id.initialize({
+        client_id:   GOOGLE_CLIENT_ID,
+        auto_select: true,               // silent path only
+        callback:    r => { google.accounts.id.cancel(); done(r?.credential || null); },
+      });
+      google.accounts.id.prompt(n => {
+        if(n.isSkippedMoment?.() || n.isDismissedMoment?.() || n.isNotDisplayed?.()) done(null);
+      });
+    } catch { done(null); }
+  });
+}
+
+function setAuthState(s) {
+  authState = s;
+  setSyncStatus(syncStatus);   // re-render the chip with the new auth state
+}
 
 // ── Backup nudge ──────────────────────────────────────────────────
 // Guest data is localStorage and nothing else. Once someone has enough
@@ -2725,7 +2912,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     // before attempting to sync. If expired, prompt re-auth silently.
     if(isGoogleAccount() && workerBase()) {
       const sessionValid = await verifyGoogleSession();
+      if(sessionValid) {
+        setAuthState('ok');
+        scheduleSessionRefresh();   // arm from this token's exp, don't wait for failure
+      }
       if(!sessionValid) {
+        setAuthState('expired');
         // Token expired — show targeted re-auth prompt that skips
         // the full wizard and doesn't ask for the worker URL again.
         setTimeout(() => showGoogleReauth(), 800);
@@ -3194,14 +3386,14 @@ function showSetupFreshGoogle(name, workerUrl, studio) {
 // Unlike the full wizard, this screen skips worker URL entry entirely
 // — the URL is already known from stored account data.
 // On success, loads the existing account without touching the wizard flow.
-function showGoogleReauth() {
+function showGoogleReauth(message) {
   const name    = D.linkedGoogle?.name || D.userName || '';
   const email   = D.linkedGoogle?.email || '';
   const picture = D.linkedGoogle?.picture || '';
 
   setupScreen('Welcome Back', `
     <p class="f13 lh muted" style="margin-bottom:1.25rem;">
-      Your session has expired. Sign in again to continue.
+      ${esc(message || 'Your session has expired. Sign in again to continue.')}
     </p>
     ${picture || name ? `
       <div class="auth-google-info" style="margin-bottom:1.25rem;">
